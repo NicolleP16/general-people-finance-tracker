@@ -18,7 +18,6 @@ class TestUserModelAndManager:
         )
         assert user.email == "TEST@example.com"
         assert user.name == "Laura Álvarez"
-        assert user.role == "user"
         assert user.is_active is True
         assert user.is_staff is False
         assert user.check_password("StrongPassword123!") is True
@@ -43,7 +42,6 @@ class TestUserModelAndManager:
         assert admin.email == "admin@example.com"
         assert admin.is_staff is True
         assert admin.is_superuser is True
-        assert admin.role == "admin"
 
 
 @pytest.mark.django_db
@@ -71,7 +69,6 @@ class TestAuthViews:
         assert "refresh" in response.data
         assert response.data["user"]["email"] == "carlos@example.com"
         assert response.data["user"]["name"] == "Carlos Gomez"
-        assert response.data["user"]["role"] == "user"
         assert User.objects.filter(email="carlos@example.com").exists()
 
     def test_register_user_short_password_fails(self):
@@ -110,7 +107,6 @@ class TestAuthViews:
             email="loginuser@example.com",
             name="Login User",
             password="LoginPassword123!",
-            role="user"
         )
 
         payload = {

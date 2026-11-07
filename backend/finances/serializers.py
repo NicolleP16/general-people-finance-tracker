@@ -5,7 +5,8 @@ from .models import Category, Transaction, Budget
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = '__all__'
+        fields = ('id', 'user', 'name', 'type', 'color', 'created_at')
+        read_only_fields = ('id', 'user', 'created_at')
 
 class TransactionSerializer(serializers.ModelSerializer):
     category_name = serializers.ReadOnlyField(source='category.name')
@@ -20,19 +21,16 @@ class TransactionSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'user', 'created_at')
 
     def validate_amount(self, value):
-        # Criterio HU-02: monto mayor a 0
         if value <= 0:
             raise serializers.ValidationError("El monto debe ser mayor que cero")
         return value
 
     def validate_transaction_date(self, value):
-        # Criterio HU-02: fecha no puede ser futura
         if value > date.today():
             raise serializers.ValidationError("Fecha no válida")
         return value
 
     def validate_description(self, value):
-        # Criterio HU-02: máximo 255 caracteres
         if value and len(value) > 255:
             raise serializers.ValidationError("La descripción no puede exceder los 255 caracteres")
         return value

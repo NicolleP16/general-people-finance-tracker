@@ -18,11 +18,13 @@ class TestTransactions:
             password="StrongPassword123!"
         )
         self.category_expense = Category.objects.create(
+            user=self.user,
             name="Alimentación",
             type="expense",
             color="#E53935"
         )
         self.category_income = Category.objects.create(
+            user=self.user,
             name="Salario",
             type="income",
             color="#43A047"

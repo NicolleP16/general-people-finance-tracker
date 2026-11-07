@@ -5,7 +5,6 @@ import random
 from datetime import date, timedelta
 from decimal import Decimal
 
-# Configurar el entorno de Django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
 import django
 django.setup()
@@ -18,27 +17,19 @@ User = get_user_model()
 def seed():
     print("🌱 Iniciando generación de datos de prueba...")
 
-    # 1. Crear o recuperar usuario de prueba
     email = "laura@ejemplo.com"
     password = "Password123!"
     name = "Laura Álvarez"
 
     user, created = User.objects.get_or_create(
         email=email,
-        defaults={"name": name, "role": "user"}
+        defaults={"name": name}
     )
-    if created:
-        user.set_password(password)
-        user.save()
-        print(f"✅ Usuario creado: {email} / Contraseña: {password}")
-    else:
-        user.set_password(password)
-        user.save()
-        print(f"ℹ️ Usuario existente actualizado: {email} / Contraseña: {password}")
+    user.set_password(password)
+    user.save()
+    print(f"✅ Usuario listo: {email} / Contraseña: {password}")
 
-    # 2. Categorías predeterminadas con sus colores y tipos
     categories_data = [
-        # Gastos
         {"name": "Alimentación", "type": "expense", "color": "#D93829"},
         {"name": "Transporte", "type": "expense", "color": "#E67E22"},
         {"name": "Vivienda & Servicios", "type": "expense", "color": "#8E44AD"},
@@ -46,7 +37,6 @@ def seed():
         {"name": "Salud & Bienestar", "type": "expense", "color": "#16A085"},
         {"name": "Educación", "type": "expense", "color": "#2980B9"},
         {"name": "Suscripciones", "type": "expense", "color": "#7F8C8D"},
-        # Ingresos
         {"name": "Salario", "type": "income", "color": "#274E2A"},
         {"name": "Freelance / Consultoría", "type": "income", "color": "#2ECC71"},
         {"name": "Inversiones", "type": "income", "color": "#1ABC9C"},
@@ -56,22 +46,20 @@ def seed():
     cat_objs = {}
     for cdata in categories_data:
         cat, _ = Category.objects.get_or_create(
+            user=user,
             name=cdata["name"],
             defaults={"type": cdata["type"], "color": cdata["color"]}
         )
         cat_objs[cat.name] = cat
 
-    print(f"✅ {len(cat_objs)} Categorías verificadas/creadas.")
+    print(f"✅ {len(cat_objs)} Categorías verificadas/creadas para {email}.")
 
-    # 3. Limpiar transacciones viejas del usuario para evitar duplicaciones
     Transaction.objects.filter(user=user).delete()
-    print("🧹 Transacciones anteriores del usuario limpiadas.")
+    print("🧹 Transacciones anteriores limpiadas.")
 
-    # 4. Generación de movimientos (últimos 90 días)
     today = date.today()
     transactions_to_create = []
 
-    # Plantillas de gastos recurrentes y variados
     sample_expenses = [
         ("Alimentación", ["Supermercado Éxito semanal", "Mercado de frutas y verduras", "Almuerzo de trabajo", "Panadería artesanal", "Snacks y café"]),
         ("Transporte", ["Recarga tarjeta de metro/bus", "Gasolina", "Uber reunión cliente", "Mantenimiento preventivo", "Peaje fin de semana"]),
@@ -81,7 +69,6 @@ def seed():
         ("Suscripciones", ["Spotify Premium", "Netflix Familiar", "iCloud Storage", "Gimnasio app"]),
     ]
 
-    # Insertar Ingresos Fijos (Salarios mensuales y quincenales en los últimos 3 meses)
     for months_back in range(3):
         for day in [15, 30]:
             tx_date = today - timedelta(days=(months_back * 30) + (30 - day))
@@ -97,7 +84,6 @@ def seed():
                     )
                 )
 
-    # Insertar Ingresos Variables (Freelance o dividendos)
     for _ in range(4):
         days_ago = random.randint(5, 75)
         tx_date = today - timedelta(days=days_ago)
@@ -113,13 +99,11 @@ def seed():
             )
         )
 
-    # Insertar Gastos cotidianos a lo largo de los últimos 60 días
     for _ in range(45):
         days_ago = random.randint(1, 60)
         tx_date = today - timedelta(days=days_ago)
         cat_name, descriptions = random.choice(sample_expenses)
         
-        # Montos según categoría
         if cat_name == "Alimentación":
             amount = Decimal(random.randint(35000, 240000))
         elif cat_name == "Transporte":
@@ -144,17 +128,15 @@ def seed():
             )
         )
 
-    # Crear todas en lote
     Transaction.objects.bulk_create(transactions_to_create)
     print(f"🎉 Se generaron con éxito {len(transactions_to_create)} transacciones.")
 
-    # 5. Crear presupuestos para el mes actual
     Budget.objects.filter(user=user, month=today.month, year=today.year).delete()
     Budget.objects.create(user=user, category=cat_objs["Alimentación"], amount_limit=Decimal("900000"), month=today.month, year=today.year)
     Budget.objects.create(user=user, category=cat_objs["Transporte"], amount_limit=Decimal("350000"), month=today.month, year=today.year)
     Budget.objects.create(user=user, category=cat_objs["Ocio & Restaurantes"], amount_limit=Decimal("400000"), month=today.month, year=today.year)
 
-    print("🎯 Presupuestos del mes actual configurados.")
+    print("🎯 Presupuestos configurados.")
     print("\n-----------------------------------------------------------")
     print(" LISTO PARA INICIAR SESIÓN")
     print(f" 📧 Correo:     {email}")
