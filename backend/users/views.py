@@ -15,17 +15,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
         token['name'] = user.name
         token['email'] = user.email
-        token['role'] = user.role
         return token
 
     def validate(self, attrs):
         data = super().validate(attrs)
-        # Incluir información del usuario directamente en la respuesta
         data['user'] = {
             'id': self.user.id,
             'name': self.user.name,
             'email': self.user.email,
-            'role': self.user.role,
         }
         return data
 
@@ -42,18 +39,15 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        # Generar tokens automáticamente al registrarse para iniciar sesión directo
         refresh = RefreshToken.for_user(user)
         refresh['name'] = user.name
         refresh['email'] = user.email
-        refresh['role'] = user.role
 
         return Response({
             'user': {
                 'id': user.id,
                 'name': user.name,
                 'email': user.email,
-                'role': user.role,
             },
             'access': str(refresh.access_token),
             'refresh': str(refresh),

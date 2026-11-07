@@ -1,12 +1,11 @@
 import { useAuth } from '../context/AuthContext';
-import { LogOut, User, Shield } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
-      {/* Barra de navegación */}
       <nav className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-bold text-slate-950">
@@ -30,7 +29,6 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      {/* Contenido principal */}
       <main className="max-w-5xl mx-auto p-6 mt-8">
         <div className="p-8 rounded-3xl bg-slate-900/40 border border-slate-800/80">
           <h2 className="text-2xl font-bold mb-2">
@@ -46,13 +44,6 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs text-slate-400">Correo Electrónico</p>
                 <p className="text-sm font-medium">{user?.email}</p>
-              </div>
-            </div>
-            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-3">
-              <Shield className="w-5 h-5 text-emerald-400" />
-              <div>
-                <p className="text-xs text-slate-400">Rol de usuario</p>
-                <p className="text-sm font-medium capitalize">{user?.role || 'user'}</p>
               </div>
             </div>
           </div>

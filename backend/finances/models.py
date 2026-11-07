@@ -7,6 +7,7 @@ class Category(models.Model):
         ('expense', 'Expense'),
     )
 
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='categories')
     name = models.CharField(max_length=100)
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     color = models.CharField(max_length=7, help_text="Ej: #FFFFFF")
@@ -14,6 +15,7 @@ class Category(models.Model):
 
     class Meta:
         db_table = 'categories'
+        unique_together = ('user', 'name', 'type')
 
     def __str__(self):
         return f"{self.name} ({self.type})"
