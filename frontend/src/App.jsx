@@ -1,3 +1,5 @@
+import MovementsPage from './pages/MovementsPage';
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -9,7 +11,10 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Ruta pública para autenticación */}
           <Route path="/login" element={<AuthPage />} />
+
+          {/* Rutas protegidas */}
           <Route
             path="/dashboard"
             element={
@@ -18,11 +23,22 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route
+            path="/movimientos"
+            element={
+              <ProtectedRoute>
+                <MovementsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Redirección por defecto */}
+          <Route path="*" element={<Navigate to="/movimientos" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
   );
 }
+
 
 export default App;
