@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
-  Wallet, 
+  TrendingUp, 
   Mail, 
   Lock, 
   User as UserIcon, 
@@ -10,7 +10,6 @@ import {
   Eye, 
   EyeOff, 
   ShieldCheck, 
-  TrendingUp, 
   AlertCircle 
 } from 'lucide-react';
 
@@ -43,7 +42,7 @@ export default function AuthPage() {
         }
         await register(formData.name, formData.email, formData.password);
       }
-      navigate('/dashboard');
+      navigate('/movimientos');
     } catch (err) {
       if (err.response?.data) {
         const errorData = err.response.data;
@@ -65,107 +64,108 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden font-sans">
-      {/* Luces decorativas en segundo plano */}
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-emerald-500/15 rounded-full blur-[130px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-teal-500/10 rounded-full blur-[130px] pointer-events-none" />
+    <div className="min-h-screen bg-[#F8FAF6] text-[#1A331C] flex items-center justify-center p-4 relative font-sans antialiased">
+      {/* Círculos ambientales sutiles acordes a la paleta verde */}
+      <div className="absolute top-12 left-12 w-72 h-72 bg-[#E3EBDD]/60 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-12 right-12 w-80 h-80 bg-[#EDF4E8]/80 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-md z-10">
-        {/* Cabecera / Marca */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl mb-3 shadow-inner">
-            <Wallet className="w-8 h-8 text-emerald-400" />
+      <div className="w-full max-w-sm z-10">
+        {/* Isotipo y Título de Marca idéntico al Sidebar */}
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-[#274E2A] text-white shadow-xs mb-3">
+            <TrendingUp size={24} strokeWidth={2.5} />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">
-            Finance<span className="text-emerald-400">Tracker</span>
+          <h1 className="text-2xl font-serif font-bold tracking-tight text-[#142A16]">
+            Balance
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Control simple, claro e inteligente de tu dinero
+          <p className="text-xs text-[#556F53] mt-1 font-medium">
+            Control simple, claro y sereno de tus finanzas
           </p>
         </div>
 
-        {/* Tarjeta Glassmorphic */}
-        <div className="bg-slate-900/70 border border-slate-800 backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/60">
-          {/* Selector Login / Register */}
-          <div className="grid grid-cols-2 p-1 bg-slate-950/60 rounded-xl mb-6 border border-slate-800/80">
+        {/* Tarjeta Principal en blanco con bordes cálidos */}
+        <div className="bg-white rounded-3xl border border-[#E4EAE0] p-6 sm:p-7 shadow-2xs">
+          
+          {/* Selector Login / Registro (mismo estilo que modal de gastos/ingresos) */}
+          <div className="flex p-1 bg-[#F1F4EE] rounded-xl border border-[#E4EAE0] mb-5">
             <button
               type="button"
               onClick={() => { setIsLogin(true); setError(''); }}
-              className={`py-2 text-sm font-medium rounded-lg transition-all ${
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${
                 isLogin
-                  ? 'bg-emerald-500 text-slate-950 shadow-md font-semibold'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white text-[#1E3B20] shadow-xs'
+                  : 'text-[#62775E] hover:text-[#1A331C]'
               }`}
             >
-              Iniciar Sesión
+              Iniciar sesión
             </button>
             <button
               type="button"
               onClick={() => { setIsLogin(false); setError(''); }}
-              className={`py-2 text-sm font-medium rounded-lg transition-all ${
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${
                 !isLogin
-                  ? 'bg-emerald-500 text-slate-950 shadow-md font-semibold'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white text-[#1E3B20] shadow-xs'
+                  : 'text-[#62775E] hover:text-[#1A331C]'
               }`}
             >
-              Crear Cuenta
+              Crear cuenta
             </button>
           </div>
 
-          {/* Mensaje de error */}
+          {/* Alerta de Error (usando el rojo institucional de gastos #D93829) */}
           {error && (
-            <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2.5 text-rose-400 text-xs sm:text-sm">
-              <AlertCircle className="w-4 h-4 shrink-0" />
+            <div className="mb-4 p-3 bg-[#FBECEB] border border-[#F5D5D3] rounded-xl flex items-center gap-2.5 text-[#D93829] text-xs font-medium">
+              <AlertCircle size={15} className="shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           {/* Formulario */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
             {!isLogin && (
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                <label className="block text-[11px] font-semibold text-[#556F53] mb-1">
                   Nombre completo
                 </label>
                 <div className="relative">
-                  <UserIcon className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <UserIcon size={15} className="text-[#738870] absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     name="name"
                     required={!isLogin}
                     value={formData.name}
                     onChange={handleChange}
-                    placeholder="Carlos Pérez"
-                    className="w-full bg-slate-950/60 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                    placeholder="Laura Álvarez"
+                    className="w-full pl-9 pr-3.5 py-2.5 bg-[#FBFDFB] border border-[#DEE6DA] rounded-xl text-xs font-medium text-[#1A331C] placeholder:text-[#9FB19D] focus:outline-none focus:border-[#274E2A] focus:ring-1 focus:ring-[#274E2A] transition"
                   />
                 </div>
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
+              <label className="block text-[11px] font-semibold text-[#556F53] mb-1">
                 Correo electrónico
               </label>
               <div className="relative">
-                <Mail className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Mail size={15} className="text-[#738870] absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
                   name="email"
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="ejemplo@correo.com"
-                  className="w-full bg-slate-950/60 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                  placeholder="laura@ejemplo.com"
+                  className="w-full pl-9 pr-3.5 py-2.5 bg-[#FBFDFB] border border-[#DEE6DA] rounded-xl text-xs font-medium text-[#1A331C] placeholder:text-[#9FB19D] focus:outline-none focus:border-[#274E2A] focus:ring-1 focus:ring-[#274E2A] transition"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
+              <label className="block text-[11px] font-semibold text-[#556F53] mb-1">
                 Contraseña
               </label>
               <div className="relative">
-                <Lock className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Lock size={15} className="text-[#738870] absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   name="password"
@@ -173,14 +173,14 @@ export default function AuthPage() {
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="Mínimo 8 caracteres"
-                  className="w-full bg-slate-950/60 border border-slate-800 rounded-xl pl-11 pr-11 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                  className="w-full pl-9 pr-10 py-2.5 bg-[#FBFDFB] border border-[#DEE6DA] rounded-xl text-xs font-medium text-[#1A331C] placeholder:text-[#9FB19D] focus:outline-none focus:border-[#274E2A] focus:ring-1 focus:ring-[#274E2A] transition"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#738870] hover:text-[#1A331C] transition"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
@@ -188,29 +188,23 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-semibold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="w-full mt-2 bg-[#274E2A] hover:bg-[#1E3F21] text-white font-semibold py-2.5 rounded-xl text-xs transition shadow-xs flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {isLoading ? (
-                <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>{isLogin ? 'Iniciar Sesión' : 'Registrarme'}</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>{isLogin ? 'Ingresar a mi cuenta' : 'Registrarme'}</span>
+                  <ArrowRight size={14} />
                 </>
               )}
             </button>
           </form>
 
-          {/* Badges de confianza */}
-          <div className="mt-8 pt-6 border-t border-slate-800/80 flex items-center justify-around text-xs text-slate-400">
-            <div className="flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Seguridad JWT</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <TrendingUp className="w-4 h-4 text-emerald-400" />
-              <span>Control Diario</span>
-            </div>
+          {/* Insignia inferior */}
+          <div className="mt-6 pt-4 border-t border-[#E6ECE2] flex items-center justify-center gap-1.5 text-[11px] text-[#738870]">
+            <ShieldCheck size={14} className="text-[#274E2A]" />
+            <span>Tus datos financieros viajan encriptados de extremo a extremo</span>
           </div>
         </div>
       </div>
