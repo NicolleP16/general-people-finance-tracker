@@ -177,6 +177,7 @@ export default function AuthPage() {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#738870] hover:text-[#1A331C] transition"
                 >
