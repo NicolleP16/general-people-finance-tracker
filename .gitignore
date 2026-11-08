@@ -37,3 +37,6 @@ Thumbs.db
 
 # Docker
 *.pid
+# Reportes de cobertura (los genera el pipeline)
+coverage.xml
+lcov.info
