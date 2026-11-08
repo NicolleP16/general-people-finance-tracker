@@ -1,20 +1,47 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../api/axios';
+import { getProfile } from '../services/authService';
+import AuthContext from './auth-context';
 
-const AuthContext = createContext(null);
+const readStoredUser = () => {
+  const savedUser = localStorage.getItem('user');
+  const token = localStorage.getItem('access_token');
+
+  if (!savedUser || !token) return null;
+
+  try {
+    return JSON.parse(savedUser);
+  } catch {
+    return null;
+  }
+};
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(readStoredUser);
+  const [loading, setLoading] = useState(() =>
+    Boolean(localStorage.getItem('access_token'))
+  );
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
     const token = localStorage.getItem('access_token');
+    if (!token) return undefined;
 
-    if (savedUser && token) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    let active = true;
+
+    getProfile()
+      .then((profile) => {
+        if (!active) return;
+        setUser(profile);
+        localStorage.setItem('user', JSON.stringify(profile));
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const login = async (email, password) => {
@@ -25,6 +52,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('refresh_token', refresh);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
+    setLoading(false);
     return userData;
   };
 
@@ -36,6 +64,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('refresh_token', refresh);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
+    setLoading(false);
     return userData;
   };
 
@@ -52,5 +81,3 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-
-export const useAuth = () => useContext(AuthContext);

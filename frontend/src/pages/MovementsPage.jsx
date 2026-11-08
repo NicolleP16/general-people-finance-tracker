@@ -12,13 +12,14 @@ import {
   Trash2,
   Wallet,
 } from 'lucide-react';
+import MonthlyFlowChart from '../components/MonthlyFlowChart';
 import Sidebar from '../components/Sidebar';
 import TransactionModal from '../components/TransactionModal';
+import { getMonthlyFlow, getSummary } from '../services/dashboardService';
 import {
   createTransaction,
   deleteTransaction,
   getCategories,
-  getSummary,
   getTransactions,
   updateTransaction,
 } from '../services/transactionsService';
@@ -97,13 +98,18 @@ const getCurrentMonthLabel = () => {
 };
 
 const fetchMovementsData = async (filters) => {
-  const [transactions, summary, categories] = await Promise.all([
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+
+  const [transactions, summary, categories, flow] = await Promise.all([
     getTransactions(filters),
-    getSummary(),
+    getSummary(month, year),
     getCategories(),
+    getMonthlyFlow(month, year, 6),
   ]);
 
-  return { transactions, summary, categories };
+  return { transactions, summary, categories, flow };
 };
 
 function StatCard({ label, value, icon: Icon, tone = 'positive', detail, featured = false }) {
@@ -143,10 +149,16 @@ export default function MovementsPage() {
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [summary, setSummary] = useState({
-    balance: 5430800,
-    incomes: 7250000,
-    expenses: 4819200,
-    savings: 2430800,
+    balance: 0,
+    incomes: 0,
+    expenses: 0,
+    savings: 0,
+    savingsPct: null,
+  });
+  const [flow, setFlow] = useState({
+    series: [],
+    period_balance: 0,
+    balance_change_pct: null,
   });
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -157,11 +169,28 @@ export default function MovementsPage() {
   const [filterType, setFilterType] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
 
-  const applyData = useCallback(({ transactions: nextTransactions, summary: nextSummary, categories: nextCategories }) => {
-    if (nextTransactions && nextTransactions.length > 0) setTransactions(nextTransactions);
-    if (nextSummary && nextSummary.balance !== undefined) setSummary(nextSummary);
-    if (nextCategories && nextCategories.length > 0) setCategories(nextCategories);
-  }, []);
+  const applyData = useCallback(
+    ({
+      transactions: nextTransactions,
+      summary: nextSummary,
+      categories: nextCategories,
+      flow: nextFlow,
+    }) => {
+      if (nextTransactions && nextTransactions.length > 0) setTransactions(nextTransactions);
+      if (nextSummary) {
+        setSummary({
+          balance: Number(nextSummary.balance?.amount) || 0,
+          incomes: Number(nextSummary.incomes?.amount) || 0,
+          expenses: Number(nextSummary.expenses?.amount) || 0,
+          savings: Number(nextSummary.savings?.amount) || 0,
+          savingsPct: nextSummary.savings?.pct_of_income ?? null,
+        });
+      }
+      if (nextCategories && nextCategories.length > 0) setCategories(nextCategories);
+      if (nextFlow) setFlow(nextFlow);
+    },
+    []
+  );
 
   useEffect(() => {
     let active = true;
@@ -221,8 +250,9 @@ export default function MovementsPage() {
   });
 
   const incomes = Number(summary.incomes) || 0;
-  const savings = Math.max(Number(summary.savings ?? summary.balance) || 0, 0);
-  const savingsRatio = incomes > 0 ? (savings / incomes) * 100 : 0;
+  const savings = Math.max(Number(summary.savings) || 0, 0);
+  const computedSavingsRatio = incomes > 0 ? (savings / incomes) * 100 : 0;
+  const savingsRatio = summary.savingsPct ?? computedSavingsRatio;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -321,66 +351,12 @@ export default function MovementsPage() {
             />
           </section>
 
-          <section className="mb-6 rounded-[0.45rem] border border-border bg-card p-5 shadow-[0_2px_8px_oklch(30%_0.02_120_/_0.035)]">
-            <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
-              <div>
-                <p className="text-[0.66rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-                  Flujo de dinero
-                </p>
-                <h2 className="mt-1 font-display text-base font-bold text-heading">
-                  Ingresos y gastos
-                </h2>
-              </div>
-              <div className="flex items-center gap-4 text-[0.68rem] font-medium text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5">
-                  <i className="size-1.5 rounded-full bg-primary-dark" />
-                  Ingresos
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <i className="size-1.5 rounded-full bg-expense" />
-                  Gastos
-                </span>
-              </div>
-            </div>
-
-            <div className="relative mt-6 h-36 w-full sm:h-44">
-              <svg viewBox="0 0 500 120" className="h-full w-full overflow-visible" preserveAspectRatio="none">
-                <defs>
-                  <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3F6B3A" stopOpacity="0.2" />
-                    <stop offset="100%" stopColor="#3F6B3A" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <path
-                  d="M 0,80 Q 75,50 150,70 T 300,45 T 450,20 L 500,15 L 500,120 L 0,120 Z"
-                  fill="url(#incomeGradient)"
-                />
-                <path
-                  d="M 0,80 Q 75,50 150,70 T 300,45 T 450,20 L 500,15"
-                  fill="none"
-                  stroke="#3F6B3A"
-                  strokeWidth="2.5"
-                />
-                <path
-                  d="M 0,105 Q 85,95 170,100 T 340,90 T 500,75"
-                  fill="none"
-                  stroke="#C77D4A"
-                  strokeWidth="2"
-                  strokeDasharray="4 4"
-                />
-              </svg>
-            </div>
-
-            <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[0.68rem] text-muted-foreground">Balance del período</span>
-                <strong className="font-display text-lg text-heading">{formatCOP(summary.balance)}</strong>
-              </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1.5 text-[0.68rem] font-bold text-positive">
-                Flujo acumulado
-              </span>
-            </div>
-          </section>
+          <MonthlyFlowChart
+            className="mb-6"
+            series={flow.series}
+            periodBalance={flow.period_balance ?? summary.balance}
+            balanceChangePct={flow.balance_change_pct}
+          />
 
           <section className="rounded-[0.45rem] border border-border bg-card p-5 shadow-[0_2px_8px_oklch(30%_0.02_120_/_0.035)]">
             <div className="mb-5 flex flex-col justify-between gap-3 lg:flex-row lg:items-center">

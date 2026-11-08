@@ -10,11 +10,21 @@ import {
   PiggyBank,
   PieChart,
   Plus,
+  ReceiptText,
+  Target,
   TrendingUp,
   WalletCards,
 } from 'lucide-react';
+import MonthlyFlowChart from '../components/MonthlyFlowChart';
 import Sidebar from '../components/Sidebar';
-import { getTransactions } from '../services/transactionsService';
+import { useAuth } from '../context/useAuth';
+import {
+  getBudgetStatus,
+  getExpensesByCategory,
+  getMonthlyFlow,
+  getRecentTransactions,
+  getSummary,
+} from '../services/dashboardService';
 
 const MONTH_NAMES = [
   'Enero',
@@ -42,6 +52,24 @@ const CATEGORY_PALETTE = [
   '#8A7D5A',
 ];
 
+const BUDGET_STATUS = {
+  ok: {
+    bar: 'bg-positive',
+    badge: 'bg-positive/15 text-positive',
+    label: 'En orden',
+  },
+  warning: {
+    bar: 'bg-highlight',
+    badge: 'bg-highlight/20 text-accent-foreground',
+    label: 'Atención',
+  },
+  exceeded: {
+    bar: 'bg-expense',
+    badge: 'bg-expense/10 text-expense',
+    label: 'Excedido',
+  },
+};
+
 const moneyFormatter = new Intl.NumberFormat('es-CO', {
   style: 'currency',
   currency: 'COP',
@@ -59,7 +87,7 @@ const englishNumberFormatter = new Intl.NumberFormat('en-US', {
 const formatMoney = (value) =>
   moneyFormatter.format(toAmount(value)).replace(/\u00A0/g, ' ');
 
-const formatPercent = (value) => `${percentFormatter.format(value)}%`;
+const formatPercent = (value) => `${percentFormatter.format(toAmount(value))}%`;
 
 const toAmount = (value) => {
   const parsed = Number(value);
@@ -79,23 +107,13 @@ const getMonthLabel = (monthKey) => {
   return `${MONTH_NAMES[month - 1]} ${year}`;
 };
 
-const getLowerMonthLabel = (monthKey) => {
-  const { month } = parseMonthKey(monthKey);
-  return MONTH_NAMES[month - 1].toLowerCase();
-};
-
-const getMonthEnd = (monthKey) => {
+const getComparisonLabel = (monthKey) => {
   const { year, month } = parseMonthKey(monthKey);
-  const lastDay = new Date(year, month, 0).getDate();
-  return `${monthKey}-${String(lastDay).padStart(2, '0')}`;
+  const previous = new Date(year, month - 2, 1);
+  return `vs. ${MONTH_NAMES[previous.getMonth()].toLowerCase()}`;
 };
 
 const getCurrentMonthKey = () => formatMonthKey(new Date());
-
-const getPreviousMonthKey = (monthKey) => {
-  const { year, month } = parseMonthKey(monthKey);
-  return formatMonthKey(new Date(year, month - 2, 1));
-};
 
 const getMonthOptions = (selectedMonth) => {
   const options = [];
@@ -115,51 +133,6 @@ const getMonthOptions = (selectedMonth) => {
   return options;
 };
 
-const summarizeTransactions = (transactions) => {
-  let incomes = 0;
-  let expenses = 0;
-
-  transactions.forEach((transaction) => {
-    if (transaction.type === 'income') {
-      incomes += toAmount(transaction.amount);
-    } else if (transaction.type === 'expense') {
-      expenses += toAmount(transaction.amount);
-    }
-  });
-
-  return { incomes, expenses, balance: incomes - expenses };
-};
-
-const buildCategoryBreakdown = (transactions, totalExpenses) => {
-  const grouped = new Map();
-
-  transactions
-    .filter((transaction) => transaction.type === 'expense')
-    .forEach((transaction) => {
-      const key = transaction.category ?? transaction.category_name ?? 'sin-categoria';
-      const current = grouped.get(key) || {
-        name: transaction.category_name || 'Sin categoría',
-        total: 0,
-      };
-
-      current.total += toAmount(transaction.amount);
-      grouped.set(key, current);
-    });
-
-  return Array.from(grouped.values())
-    .sort((a, b) => b.total - a.total)
-    .map((category, index) => ({
-      ...category,
-      color: CATEGORY_PALETTE[index % CATEGORY_PALETTE.length],
-      percentage: totalExpenses > 0 ? (category.total / totalExpenses) * 100 : 0,
-    }));
-};
-
-const getPercentChange = (current, previous) => {
-  if (!Number.isFinite(previous) || previous === 0) return null;
-  return ((current - previous) / Math.abs(previous)) * 100;
-};
-
 const getTodayLabel = () => {
   const label = new Intl.DateTimeFormat('es-CO', {
     weekday: 'long',
@@ -170,8 +143,58 @@ const getTodayLabel = () => {
   return label.charAt(0).toUpperCase() + label.slice(1);
 };
 
-function SummaryChange({ change, comparisonLabel }) {
-  if (change === null) {
+const formatRecentDate = (value) => {
+  if (!value) return '';
+  const [year, month, day] = String(value).split('-').map(Number);
+  if (!year || !month || !day) return String(value);
+
+  return new Intl.DateTimeFormat('es-CO', {
+    day: 'numeric',
+    month: 'short',
+  }).format(new Date(year, month - 1, day));
+};
+
+const getInitials = (name) => {
+  if (!name) return 'LA';
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0))
+    .join('')
+    .toUpperCase();
+};
+
+const normalizeCategories = (categories) => {
+  const items = (Array.isArray(categories) ? categories : [])
+    .map((category, index) => ({
+      id: category.category_id ?? category.id ?? category.name ?? index,
+      name: category.name || 'Sin categoría',
+      total: toAmount(category.total),
+      color: category.color || CATEGORY_PALETTE[index % CATEGORY_PALETTE.length],
+      percentage: Number(category.percentage),
+    }))
+    .filter((category) => category.total > 0);
+
+  const total = items.reduce((sum, category) => sum + category.total, 0);
+
+  return items
+    .map((category) => ({
+      ...category,
+      percentage: Number.isFinite(category.percentage)
+        ? category.percentage
+        : total > 0
+          ? (category.total / total) * 100
+          : 0,
+    }))
+    .sort((a, b) => b.total - a.total);
+};
+
+function ChangeDetail({ value, comparisonLabel, positiveIsGood = true }) {
+  const hasValue = value !== null && value !== undefined && Number.isFinite(Number(value));
+  const numeric = Number(value);
+
+  if (!hasValue) {
     return (
       <div className="mt-2.5 flex items-center gap-1.5 text-[0.7rem] text-muted-foreground">
         <span className="grid size-[1.15rem] place-items-center rounded-full bg-muted text-muted-foreground">
@@ -182,25 +205,29 @@ function SummaryChange({ change, comparisonLabel }) {
     );
   }
 
-  const isUp = change >= 0;
+  const isUp = numeric >= 0;
+  const isGood = positiveIsGood ? isUp : !isUp;
   const Icon = isUp ? ArrowUpRight : ArrowDownRight;
 
   return (
     <div className="mt-2.5 flex items-center gap-1.5 text-[0.7rem] text-muted-foreground">
       <span
         className={`grid size-[1.15rem] place-items-center rounded-full ${
-          isUp ? 'bg-positive/20 text-positive' : 'bg-expense/15 text-expense'
+          isGood ? 'bg-positive/20 text-positive' : 'bg-expense/15 text-expense'
         }`}
       >
         <Icon size={12} />
       </span>
-      {formatPercent(Math.abs(change))} {comparisonLabel}
+      {formatPercent(Math.abs(numeric))} {comparisonLabel}
     </div>
   );
 }
 
-function SavingsDetail({ ratio, hasIncome }) {
-  const isPositive = hasIncome && ratio > 0;
+function SavingsDetail({ percentage }) {
+  const hasValue =
+    percentage !== null && percentage !== undefined && Number.isFinite(Number(percentage));
+  const numeric = Number(percentage);
+  const isPositive = hasValue && numeric > 0;
 
   return (
     <div className="mt-2.5 flex items-center gap-1.5 text-[0.7rem] text-muted-foreground">
@@ -211,7 +238,7 @@ function SavingsDetail({ ratio, hasIncome }) {
       >
         {isPositive ? <TrendingUp size={12} /> : <Minus size={12} />}
       </span>
-      {hasIncome ? `${formatPercent(ratio)} de tus ingresos` : 'Sin ingresos este mes'}
+      {hasValue ? `${formatPercent(numeric)} de tus ingresos` : 'Sin comparación mensual'}
     </div>
   );
 }
@@ -279,12 +306,12 @@ function CategoryTooltip({ category }) {
   );
 }
 
-function SpendingDistribution({ expenses, breakdown }) {
+function SpendingDistribution({ categories, totalExpenses }) {
   const [hoveredCategory, setHoveredCategory] = useState(null);
 
   const radius = 45;
   const circumference = 2 * Math.PI * radius;
-  const segments = breakdown.reduce((result, category) => {
+  const segments = categories.reduce((result, category) => {
     const previous = result[result.length - 1];
     const accumulatedPercentage = previous
       ? previous.accumulatedPercentage + previous.percentage
@@ -294,9 +321,9 @@ function SpendingDistribution({ expenses, breakdown }) {
   }, []);
 
   return (
-    <section className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(20rem,0.85fr)]">
+    <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(17rem,0.75fr)]">
       <article className="min-w-0 rounded-[0.45rem] border border-border bg-card p-5 shadow-[0_2px_8px_oklch(30%_0.02_120_/_0.035)]">
-        <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
+        <div className="flex flex-col gap-2">
           <div>
             <p className="text-[0.66rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">
               Gastos por categoría
@@ -306,8 +333,8 @@ function SpendingDistribution({ expenses, breakdown }) {
             </h2>
           </div>
           <div className="flex flex-wrap gap-x-3.5 gap-y-1 text-[0.68rem] text-muted-foreground">
-            {breakdown.map((category) => (
-              <span key={`legend-${category.name}`} className="inline-flex items-center gap-1.5">
+            {categories.map((category) => (
+              <span key={`legend-${category.id}`} className="inline-flex items-center gap-1.5">
                 <i
                   className="size-1.5 rounded-full"
                   style={{ backgroundColor: category.color }}
@@ -340,7 +367,7 @@ function SpendingDistribution({ expenses, breakdown }) {
 
                 return (
                   <circle
-                    key={`segment-${category.name}`}
+                    key={`segment-${category.id}`}
                     cx="60"
                     cy="60"
                     r={radius}
@@ -367,7 +394,7 @@ function SpendingDistribution({ expenses, breakdown }) {
                 Total
               </span>
               <span className="font-display text-base font-bold text-heading">
-                {formatMoney(expenses)}
+                {formatMoney(totalExpenses)}
               </span>
             </div>
 
@@ -378,11 +405,11 @@ function SpendingDistribution({ expenses, breakdown }) {
         <div className="mt-7 flex items-center justify-between gap-3 border-t border-border pt-4">
           <div className="flex flex-col gap-0.5">
             <span className="text-[0.68rem] text-muted-foreground">Total gastado</span>
-            <strong className="font-display text-lg text-heading">{formatMoney(expenses)}</strong>
+            <strong className="font-display text-lg text-heading">{formatMoney(totalExpenses)}</strong>
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1.5 text-[0.68rem] font-bold text-positive">
             <PieChart size={14} />
-            {breakdown.length} {breakdown.length === 1 ? 'categoría' : 'categorías'}
+            {categories.length} {categories.length === 1 ? 'categoría' : 'categorías'}
           </span>
         </div>
       </article>
@@ -405,9 +432,9 @@ function SpendingDistribution({ expenses, breakdown }) {
         </div>
 
         <div className="mt-5 space-y-4" data-testid="category-list">
-          {breakdown.map((category) => (
+          {categories.map((category) => (
             <div
-              key={category.name}
+              key={category.id}
               data-testid="category-row"
               data-category={category.name}
               role="listitem"
@@ -447,107 +474,229 @@ function SpendingDistribution({ expenses, breakdown }) {
   );
 }
 
+function EmptyExpenses() {
+  return (
+    <section className="flex min-h-[260px] flex-col items-center justify-center rounded-[0.45rem] border border-dashed border-border bg-card px-6 py-12 text-center shadow-[0_2px_8px_oklch(30%_0.02_120_/_0.035)]">
+      <PieChart className="mb-3 size-8 text-muted-foreground" />
+      <p className="text-sm font-semibold text-foreground">No expenses this month yet</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Aún no hay gastos registrados en este mes.
+      </p>
+    </section>
+  );
+}
+
+function BudgetStatus({ budgets }) {
+  const items = Array.isArray(budgets) ? budgets : [];
+
+  return (
+    <section
+      data-testid="budget-status"
+      className="flex min-w-0 flex-col rounded-[0.45rem] border border-border bg-card p-5 shadow-[0_2px_8px_oklch(30%_0.02_120_/_0.035)]"
+    >
+      <div>
+        <p className="text-[0.66rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+          Control mensual
+        </p>
+        <h2 className="mt-1 font-display text-base font-bold text-heading">Presupuestos</h2>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
+          <Target className="mb-3 size-8 text-muted-foreground" />
+          <p className="text-xs font-semibold text-foreground">
+            No hay presupuestos para este mes
+          </p>
+          <p className="mt-1 max-w-[15rem] text-[0.68rem] text-muted-foreground">
+            Cuando registres límites por categoría, verás aquí su avance.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-5 space-y-5" data-testid="budget-list">
+          {items.map((budget) => {
+            const status = BUDGET_STATUS[budget.status] || BUDGET_STATUS.ok;
+            const usedPercentage = toAmount(budget.used_pct);
+            const barWidth = Math.min(Math.max(usedPercentage, 0), 100);
+
+            return (
+              <div key={budget.category_id ?? budget.name} data-testid="budget-row">
+                <div className="flex items-end justify-between gap-3">
+                  <strong className="min-w-0 truncate text-[0.77rem] text-foreground">
+                    {budget.name}
+                  </strong>
+                  <span className="shrink-0 whitespace-nowrap text-[0.7rem] font-bold text-foreground">
+                    {formatMoney(budget.spent)}
+                    <small className="ml-1 font-normal text-muted-foreground">
+                      de {formatMoney(budget.limit)}
+                    </small>
+                  </span>
+                </div>
+                <div className="mt-1.5 h-[0.4rem] overflow-hidden rounded-full bg-muted">
+                  <span
+                    className={`block h-full rounded-full ${status.bar}`}
+                    style={{ width: `${barWidth}%` }}
+                  />
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-2 text-[0.65rem]">
+                  <span className={`rounded-full px-1.5 py-px font-bold ${status.badge}`}>
+                    {status.label}
+                  </span>
+                  <span className="font-medium text-muted-foreground">
+                    {formatPercent(usedPercentage)} utilizado
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RecentMovements({ transactions }) {
+  const items = Array.isArray(transactions) ? transactions : [];
+
+  return (
+    <section className="flex min-w-0 flex-col rounded-[0.45rem] border border-border bg-card p-5 shadow-[0_2px_8px_oklch(30%_0.02_120_/_0.035)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[0.66rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+            Actividad
+          </p>
+          <h2 className="mt-1 font-display text-base font-bold text-heading">
+            Movimientos recientes
+          </h2>
+        </div>
+        <a
+          href="/movimientos"
+          className="inline-flex items-center gap-1.5 text-[0.72rem] font-bold text-primary-dark transition hover:text-heading"
+        >
+          Ver todos
+          <ArrowUpRight size={15} />
+        </a>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
+          <ReceiptText className="mb-3 size-8 text-muted-foreground" />
+          <p className="text-xs font-semibold text-foreground">Todavía no hay movimientos</p>
+          <p className="mt-1 text-[0.68rem] text-muted-foreground">
+            Tus últimos registros aparecerán aquí.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 divide-y divide-border">
+          {items.map((transaction) => {
+            const isIncome = transaction.type === 'income';
+            const amount = toAmount(transaction.amount);
+
+            return (
+              <div
+                key={transaction.id}
+                data-testid="recent-transaction"
+                className="flex items-center justify-between gap-2 py-3"
+              >
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span
+                    className={`grid size-8 shrink-0 place-items-center rounded-[0.35rem] ${
+                      isIncome ? 'bg-secondary text-primary-dark' : 'bg-expense/10 text-expense'
+                    }`}
+                  >
+                    {isIncome ? <ArrowDownRight size={15} /> : <ArrowUpRight size={15} />}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-[0.76rem] font-semibold text-foreground">
+                      {transaction.description || transaction.category_name || 'Movimiento'}
+                    </p>
+                    <p className="mt-0.5 flex items-center gap-1.5 truncate text-[0.65rem] text-muted-foreground">
+                      <i
+                        className="size-1.5 shrink-0 rounded-full"
+                        style={{
+                          backgroundColor:
+                            transaction.category_color || 'var(--color-primary)',
+                        }}
+                      />
+                      {formatRecentDate(transaction.transaction_date)}
+                      {transaction.category_name ? ` · ${transaction.category_name}` : ''}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={`shrink-0 text-[0.72rem] font-bold ${
+                    isIncome ? 'text-positive' : 'text-expense'
+                  }`}
+                >
+                  {isIncome ? '+' : '−'} {formatMoney(amount)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function SummaryPage() {
+  const { user } = useAuth() ?? {};
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthKey);
-  const [monthlyData, setMonthlyData] = useState({
-    month: null,
-    previousMonth: null,
-    transactions: [],
-    previousTransactions: [],
+  const [dashboard, setDashboard] = useState({
+    monthKey: null,
+    summary: null,
+    flow: null,
+    budgets: [],
+    expenses: [],
+    recentTransactions: [],
   });
 
   useEffect(() => {
     let cancelled = false;
-    const previousMonth = getPreviousMonthKey(selectedMonth);
+    const { year, month } = parseMonthKey(selectedMonth);
 
-    Promise.all([
-      getTransactions({
-        start_date: `${selectedMonth}-01`,
-        end_date: getMonthEnd(selectedMonth),
-        page_size: 1000,
-      }),
-      getTransactions({
-        start_date: `${previousMonth}-01`,
-        end_date: getMonthEnd(previousMonth),
-        page_size: 1000,
-      }).catch(() => []),
-    ])
-      .then(([transactions, previousTransactions]) => {
-        if (!cancelled) {
-          setMonthlyData({
-            month: selectedMonth,
-            previousMonth,
-            transactions: Array.isArray(transactions) ? transactions : [],
-            previousTransactions: Array.isArray(previousTransactions)
-              ? previousTransactions
-              : [],
-          });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setMonthlyData({
-            month: selectedMonth,
-            previousMonth,
-            transactions: [],
-            previousTransactions: [],
-          });
-        }
+    Promise.allSettled([
+      getSummary(month, year),
+      getMonthlyFlow(month, year, 6),
+      getBudgetStatus(month, year),
+      getExpensesByCategory(month, year),
+      getRecentTransactions(5),
+    ]).then(([summaryResult, flowResult, budgetsResult, expensesResult, recentResult]) => {
+      if (cancelled) return;
+
+      setDashboard({
+        monthKey: selectedMonth,
+        summary:
+          summaryResult.status === 'fulfilled' ? summaryResult.value : null,
+        flow: flowResult.status === 'fulfilled' ? flowResult.value : null,
+        budgets: budgetsResult.status === 'fulfilled' ? budgetsResult.value : [],
+        expenses: expensesResult.status === 'fulfilled' ? expensesResult.value : [],
+        recentTransactions:
+          recentResult.status === 'fulfilled' ? recentResult.value : [],
       });
+    });
 
     return () => {
       cancelled = true;
     };
   }, [selectedMonth]);
 
-  const transactions = useMemo(
-    () => (monthlyData.month === selectedMonth ? monthlyData.transactions : []),
-    [monthlyData, selectedMonth]
+  const isLoading = dashboard.monthKey !== selectedMonth;
+  const summary = dashboard.summary;
+  const incomes = toAmount(summary?.incomes?.amount);
+  const expenses = toAmount(summary?.expenses?.amount);
+  const balance = toAmount(summary?.balance?.amount);
+  const savings = toAmount(summary?.savings?.amount);
+  const categories = useMemo(
+    () => normalizeCategories(dashboard.expenses),
+    [dashboard.expenses]
   );
-
-  const previousMonth = useMemo(
-    () => getPreviousMonthKey(selectedMonth),
-    [selectedMonth]
-  );
-
-  const previousTransactions = useMemo(
-    () =>
-      monthlyData.previousMonth === previousMonth ? monthlyData.previousTransactions : [],
-    [monthlyData, previousMonth]
-  );
-
-  const isLoading = monthlyData.month !== selectedMonth;
-
-  const summary = useMemo(() => summarizeTransactions(transactions), [transactions]);
-  const previousSummary = useMemo(
-    () => summarizeTransactions(previousTransactions),
-    [previousTransactions]
-  );
-
-  const breakdown = useMemo(
-    () => buildCategoryBreakdown(transactions, summary.expenses),
-    [transactions, summary.expenses]
-  );
-
   const monthOptions = useMemo(() => getMonthOptions(selectedMonth), [selectedMonth]);
-
-  const previousHasData = previousTransactions.length > 0;
-  const comparisonLabel = `vs. ${getLowerMonthLabel(previousMonth)}`;
-  const incomeChange = previousHasData
-    ? getPercentChange(summary.incomes, previousSummary.incomes)
-    : null;
-  const expensesChange = previousHasData
-    ? getPercentChange(summary.expenses, previousSummary.expenses)
-    : null;
-  const balanceChange = previousHasData
-    ? getPercentChange(summary.balance, previousSummary.balance)
-    : null;
-  const savings = Math.max(summary.balance, 0);
-  const savingsRatio = summary.incomes > 0 ? (savings / summary.incomes) * 100 : 0;
-
+  const comparisonLabel = getComparisonLabel(selectedMonth);
+  const displayName = user?.name?.trim().split(/\s+/)[0] || 'Laura';
+  const initials = getInitials(user?.name);
   const subtitle =
-    summary.balance < 0
+    balance < 0
       ? 'Tus gastos superan los ingresos de este mes. Revisa la distribución para encontrar oportunidades de ajuste.'
       : 'Tu dinero está trabajando bien este mes.';
 
@@ -610,10 +759,10 @@ export default function SummaryPage() {
 
             <button
               type="button"
-              aria-label="Perfil de Laura"
+              aria-label={`Perfil de ${displayName}`}
               className="grid size-[2.15rem] place-items-center rounded-full border-0 bg-primary text-[0.72rem] font-bold text-primary-foreground"
             >
-              LA
+              {initials}
             </button>
           </div>
         </header>
@@ -623,7 +772,7 @@ export default function SummaryPage() {
             <div>
               <p className="mb-2 text-sm font-medium text-primary-dark">{getTodayLabel()}</p>
               <h1 className="font-display text-3xl font-semibold tracking-tight text-heading md:text-4xl">
-                Buenos días, Laura
+                Buenos días, {displayName}
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{subtitle}</p>
             </div>
@@ -644,28 +793,44 @@ export default function SummaryPage() {
             <SummaryCard
               label="Saldo disponible"
               englishLabel="Balance"
-              value={summary.balance}
+              value={balance}
               icon={WalletCards}
               featured
-              negative={summary.balance < 0}
+              negative={balance < 0}
               testId="summary-balance"
-              detail={<SummaryChange change={balanceChange} comparisonLabel={comparisonLabel} />}
+              detail={
+                <ChangeDetail
+                  value={summary?.balance?.change_pct}
+                  comparisonLabel={comparisonLabel}
+                />
+              }
             />
             <SummaryCard
               label="Ingresos"
               englishLabel="Income"
-              value={summary.incomes}
+              value={incomes}
               icon={ArrowDownRight}
               testId="summary-income"
-              detail={<SummaryChange change={incomeChange} comparisonLabel={comparisonLabel} />}
+              detail={
+                <ChangeDetail
+                  value={summary?.incomes?.change_pct}
+                  comparisonLabel={comparisonLabel}
+                />
+              }
             />
             <SummaryCard
               label="Gastos"
               englishLabel="Expenses"
-              value={summary.expenses}
+              value={expenses}
               icon={ArrowUpRight}
               testId="summary-expenses"
-              detail={<SummaryChange change={expensesChange} comparisonLabel={comparisonLabel} />}
+              detail={
+                <ChangeDetail
+                  value={summary?.expenses?.change_pct}
+                  comparisonLabel={comparisonLabel}
+                  positiveIsGood={false}
+                />
+              }
             />
             <SummaryCard
               label="Ahorro del mes"
@@ -673,7 +838,7 @@ export default function SummaryPage() {
               value={savings}
               icon={PiggyBank}
               testId="summary-savings"
-              detail={<SavingsDetail ratio={savingsRatio} hasIncome={summary.incomes > 0} />}
+              detail={<SavingsDetail percentage={summary?.savings?.pct_of_income} />}
             />
           </section>
 
@@ -681,16 +846,26 @@ export default function SummaryPage() {
             <section className="flex min-h-[260px] items-center justify-center rounded-[0.45rem] border border-border bg-card px-6 py-10 shadow-[0_2px_8px_oklch(30%_0.02_120_/_0.035)]">
               <p className="text-xs font-medium text-muted-foreground">Cargando resumen...</p>
             </section>
-          ) : summary.expenses === 0 ? (
-            <section className="flex min-h-[260px] flex-col items-center justify-center rounded-[0.45rem] border border-dashed border-border bg-card px-6 py-12 text-center shadow-[0_2px_8px_oklch(30%_0.02_120_/_0.035)]">
-              <PieChart className="mb-3 h-8 w-8 text-muted-foreground" />
-              <p className="text-sm font-semibold text-foreground">No expenses this month yet</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Aún no hay gastos registrados en este mes.
-              </p>
-            </section>
           ) : (
-            <SpendingDistribution expenses={summary.expenses} breakdown={breakdown} />
+            <>
+              <section className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(20rem,0.85fr)]">
+                <MonthlyFlowChart
+                  series={dashboard.flow?.series}
+                  periodBalance={dashboard.flow?.period_balance ?? balance}
+                  balanceChangePct={dashboard.flow?.balance_change_pct}
+                />
+                <BudgetStatus budgets={dashboard.budgets} />
+              </section>
+
+              <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(20rem,0.8fr)]">
+                {categories.length === 0 ? (
+                  <EmptyExpenses />
+                ) : (
+                  <SpendingDistribution categories={categories} totalExpenses={expenses} />
+                )}
+                <RecentMovements transactions={dashboard.recentTransactions} />
+              </section>
+            </>
           )}
         </div>
       </div>
