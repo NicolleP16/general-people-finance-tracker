@@ -75,7 +75,7 @@ class TestTransactions:
         self.client.force_authenticate(user=self.user)
         response = self.client.get("/api/finances/transactions/")
         assert response.status_code == 200
-        assert len(response.data) == 0
+        assert response.data["count"] == 0
 
     def test_summary_calculation(self):
         """Caja blanca: comprobación de agregaciones matemáticas"""
