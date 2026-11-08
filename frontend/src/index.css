@@ -1,1 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: oklch(97% 0.01 90);
+  --color-foreground: oklch(31% 0.015 120);
+  --color-heading: oklch(43% 0.055 135);
+  --color-card: oklch(99.2% 0.005 90);
+  --color-card-foreground: oklch(31% 0.015 120);
+  --color-primary: oklch(71% 0.065 135);
+  --color-primary-foreground: oklch(98.5% 0.006 95);
+  --color-primary-dark: oklch(45% 0.075 135);
+  --color-secondary: oklch(93% 0.025 105);
+  --color-secondary-foreground: oklch(43% 0.055 135);
+  --color-muted: oklch(94.5% 0.012 95);
+  --color-muted-foreground: oklch(55% 0.025 120);
+  --color-accent: oklch(88% 0.09 78);
+  --color-accent-foreground: oklch(34% 0.025 80);
+  --color-positive: oklch(60% 0.075 135);
+  --color-expense: oklch(64% 0.12 35);
+  --color-highlight: oklch(75% 0.13 75);
+  --color-border: oklch(88% 0.02 100);
+  --color-input: oklch(88% 0.02 100);
+  --color-ring: oklch(60% 0.075 135);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}

@@ -1,18 +1,143 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Plus, ArrowDownLeft, ArrowUpRight, Trash2, Edit2, 
-  Calendar, Bell, Wallet, PiggyBank, Search, Menu 
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Bell,
+  CalendarDays,
+  Edit2,
+  Menu,
+  PiggyBank,
+  Plus,
+  Search,
+  Trash2,
+  Wallet,
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import TransactionModal from '../components/TransactionModal';
 import {
-  getTransactions,
-  getSummary,
   createTransaction,
-  updateTransaction,
   deleteTransaction,
   getCategories,
+  getSummary,
+  getTransactions,
+  updateTransaction,
 } from '../services/transactionsService';
+
+const FALLBACK_TRANSACTIONS = [
+  {
+    id: 1,
+    type: 'expense',
+    amount: 85000,
+    category_name: 'Alimentación',
+    description: 'Supermercado semanal',
+    transaction_date: '2026-09-28',
+  },
+  {
+    id: 2,
+    type: 'income',
+    amount: 3500000,
+    category_name: 'Salario',
+    description: 'Nómina quincenal',
+    transaction_date: '2026-09-27',
+  },
+  {
+    id: 3,
+    type: 'expense',
+    amount: 45000,
+    category_name: 'Transporte',
+    description: 'Recarga tarjeta de viaje',
+    transaction_date: '2026-09-26',
+  },
+  {
+    id: 4,
+    type: 'expense',
+    amount: 120000,
+    category_name: 'Ocio',
+    description: 'Cena con amigos',
+    transaction_date: '2026-09-25',
+  },
+];
+
+const moneyFormatter = new Intl.NumberFormat('es-CO', {
+  style: 'currency',
+  currency: 'COP',
+  maximumFractionDigits: 0,
+});
+
+const percentFormatter = new Intl.NumberFormat('es-CO', {
+  maximumFractionDigits: 1,
+});
+
+const formatCOP = (value) => {
+  const parsed = Number(value);
+  return moneyFormatter
+    .format(Number.isFinite(parsed) ? parsed : 0)
+    .replace(/\u00A0/g, ' ');
+};
+
+const formatPercent = (value) => `${percentFormatter.format(value)}%`;
+
+const getTodayLabel = () => {
+  const label = new Intl.DateTimeFormat('es-CO', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date());
+
+  return label.charAt(0).toUpperCase() + label.slice(1);
+};
+
+const getCurrentMonthLabel = () => {
+  const label = new Intl.DateTimeFormat('es-CO', {
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date());
+
+  return (label.charAt(0).toUpperCase() + label.slice(1)).replace(' de ', ' ');
+};
+
+const fetchMovementsData = async (filters) => {
+  const [transactions, summary, categories] = await Promise.all([
+    getTransactions(filters),
+    getSummary(),
+    getCategories(),
+  ]);
+
+  return { transactions, summary, categories };
+};
+
+function StatCard({ label, value, icon: Icon, tone = 'positive', detail, featured = false }) {
+  const isExpense = tone === 'expense';
+
+  return (
+    <article
+      className={`min-w-0 rounded-[0.45rem] border border-border bg-card p-[1.15rem] shadow-[0_1px_3px_oklch(30%_0.02_120_/_0.04)] ${
+        featured ? 'border-t-[3px] border-t-primary-dark' : ''
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2 text-[0.76rem] font-semibold text-muted-foreground">
+        <span>{label}</span>
+        <span
+          className={`grid size-8 place-items-center rounded-[0.35rem] ${
+            isExpense ? 'bg-expense/10 text-expense' : 'bg-secondary text-primary-dark'
+          }`}
+        >
+          <Icon size={18} />
+        </span>
+      </div>
+
+      <strong
+        className={`mt-3.5 block break-words font-display text-2xl font-bold tracking-tight ${
+          isExpense ? 'text-expense' : 'text-heading'
+        }`}
+      >
+        {formatCOP(value)}
+      </strong>
+
+      <p className="mt-2.5 text-[0.7rem] text-muted-foreground">{detail}</p>
+    </article>
+  );
+}
 
 export default function MovementsPage() {
   const [transactions, setTransactions] = useState([]);
@@ -32,34 +157,36 @@ export default function MovementsPage() {
   const [filterType, setFilterType] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
 
-  const loadData = async () => {
-    try {
-      const filters = {};
-      if (filterType) filters.type = filterType;
-      if (filterCategory) filters.category = filterCategory;
-
-      const [txs, sum, cats] = await Promise.all([
-        getTransactions(filters),
-        getSummary(),
-        getCategories(),
-      ]);
-
-      if (txs && txs.length > 0) setTransactions(txs);
-      if (sum && sum.balance !== undefined) setSummary(sum);
-      if (cats && cats.length > 0) setCategories(cats);
-    } catch {
-      setTransactions([
-        { id: 1, type: 'expense', amount: 85000, category_name: 'Alimentación', description: 'Supermercado semanal', transaction_date: '2026-09-28' },
-        { id: 2, type: 'income', amount: 3500000, category_name: 'Salario', description: 'Nómina quincenal', transaction_date: '2026-09-27' },
-        { id: 3, type: 'expense', amount: 45000, category_name: 'Transporte', description: 'Recarga tarjeta de viaje', transaction_date: '2026-09-26' },
-        { id: 4, type: 'expense', amount: 120000, category_name: 'Ocio', description: 'Cena con amigos', transaction_date: '2026-09-25' },
-      ]);
-    }
-  };
+  const applyData = useCallback(({ transactions: nextTransactions, summary: nextSummary, categories: nextCategories }) => {
+    if (nextTransactions && nextTransactions.length > 0) setTransactions(nextTransactions);
+    if (nextSummary && nextSummary.balance !== undefined) setSummary(nextSummary);
+    if (nextCategories && nextCategories.length > 0) setCategories(nextCategories);
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, [filterType, filterCategory]);
+    let active = true;
+
+    fetchMovementsData({ type: filterType, category: filterCategory })
+      .then((data) => {
+        if (active) applyData(data);
+      })
+      .catch(() => {
+        if (active) setTransactions(FALLBACK_TRANSACTIONS);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [filterType, filterCategory, applyData]);
+
+  const loadData = async () => {
+    try {
+      const data = await fetchMovementsData({ type: filterType, category: filterCategory });
+      applyData(data);
+    } catch {
+      setTransactions(FALLBACK_TRANSACTIONS);
+    }
+  };
 
   const handleSave = async (formData) => {
     try {
@@ -71,202 +198,218 @@ export default function MovementsPage() {
       setSelectedTx(null);
       await loadData();
     } catch (err) {
-      alert(err.response?.data?.error || "Error al registrar movimiento");
+      alert(err.response?.data?.error || 'Error al registrar movimiento');
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("¿Seguro que deseas eliminar esta transacción?")) {
+    if (window.confirm('¿Seguro que deseas eliminar esta transacción?')) {
       try {
         await deleteTransaction(id);
       } catch {
-        setTransactions(transactions.filter(t => t.id !== id));
+        setTransactions((current) => current.filter((transaction) => transaction.id !== id));
       }
       await loadData();
     }
   };
 
-  const formatCOP = (val) =>
-    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
-
-  const filteredList = transactions.filter(t => {
-    const descMatch = (t.description || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const catMatch = (t.category_name || '').toLowerCase().includes(searchTerm.toLowerCase());
-    return descMatch || catMatch;
+  const filteredList = transactions.filter((transaction) => {
+    const normalizedSearch = searchTerm.toLowerCase();
+    const descriptionMatch = (transaction.description || '').toLowerCase().includes(normalizedSearch);
+    const categoryMatch = (transaction.category_name || '').toLowerCase().includes(normalizedSearch);
+    return descriptionMatch || categoryMatch;
   });
 
+  const incomes = Number(summary.incomes) || 0;
+  const savings = Math.max(Number(summary.savings ?? summary.balance) || 0, 0);
+  const savingsRatio = incomes > 0 ? (savings / incomes) * 100 : 0;
+
   return (
-    <div className="min-h-screen bg-[#F8FAF6] text-[#1A331C] font-sans antialiased">
-      {/* Sidebar fijo e inmóvil */}
+    <div className="min-h-screen bg-background text-foreground">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-      {/* Contenedor con lg:pl-64: reserva el espacio para el sidebar y permite scroll solo en el contenido */}
-      <div className="lg:pl-64 min-h-screen flex flex-col">
-        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
-          {/* Barra Superior */}
-          <header className="flex items-center justify-between pb-4 sm:pb-6 mb-4 border-b border-[#E6ECE2]">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsSidebarOpen(true)}
-                className="lg:hidden p-2 rounded-xl bg-white border border-[#DEE6DA] text-[#4F644D] hover:bg-[#EEF4E9] transition shadow-2xs"
-                aria-label="Abrir menú"
-              >
-                <Menu size={18} />
-              </button>
+      <div className="min-h-screen lg:pl-60">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur md:px-8">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="grid size-9 place-items-center rounded-[0.4rem] border border-border bg-card text-muted-foreground transition hover:bg-secondary hover:text-primary-dark md:hidden"
+              aria-label="Abrir menú"
+            >
+              <Menu size={20} />
+            </button>
+            <span className="hidden text-sm text-muted-foreground sm:block">Mi espacio</span>
+            <span className="hidden text-muted-foreground sm:block">/</span>
+            <span className="text-sm font-semibold text-foreground">Movimientos</span>
+          </div>
 
-              <div className="flex items-center gap-2 text-xs font-medium text-[#62775E]">
-                <span className="hidden sm:inline">Mi espacio</span>
-                <span className="hidden sm:inline">/</span>
-                <span className="text-[#1A331C] font-semibold">Movimientos</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="flex items-center gap-1.5 sm:gap-2 bg-white border border-[#DEE6DA] px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold text-[#1A331C] shadow-2xs">
-                <Calendar size={13} className="text-[#62775E]" />
-                <span className="text-[11px] sm:text-xs">Septiembre 2026</span>
-              </div>
-
-              <button className="w-8 h-8 rounded-xl bg-white border border-[#DEE6DA] flex items-center justify-center text-[#62775E] hover:text-[#1A331C] shadow-2xs transition">
-                <Bell size={14} />
-              </button>
-
-              <div className="w-8 h-8 rounded-full bg-[#274E2A] text-white flex items-center justify-center text-xs font-bold shadow-xs shrink-0">
-                LA
-              </div>
-            </div>
-          </header>
-
-          {/* Encabezado y Acción */}
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 sm:mb-7">
-            <div>
-              <p className="text-xs font-medium text-[#738870] capitalize">Lunes, 28 de septiembre</p>
-              <h1 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight text-[#142A16] mt-0.5">
-                Buenos días, Laura
-              </h1>
-              <p className="text-xs text-[#556F53] mt-1">Tu dinero está trabajando bien este mes.</p>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex h-9 items-center gap-2 rounded-[0.4rem] border border-border bg-card px-[0.7rem] text-[0.78rem] text-foreground">
+              <CalendarDays size={16} className="text-muted-foreground" />
+              <span className="font-medium">{getCurrentMonthLabel()}</span>
             </div>
 
             <button
-              onClick={() => { setSelectedTx(null); setIsModalOpen(true); }}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#274E2A] hover:bg-[#1E3F21] text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow-xs transition"
+              type="button"
+              aria-label="Notificaciones"
+              className="relative grid size-9 place-items-center rounded-[0.4rem] border border-border bg-card text-muted-foreground transition hover:bg-secondary hover:text-primary-dark"
             >
-              <Plus size={16} strokeWidth={2.5} />
-              <span>Añadir movimiento</span>
+              <Bell size={18} />
+              <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full border border-card bg-expense" />
+            </button>
+
+            <button
+              type="button"
+              aria-label="Perfil de Laura"
+              className="grid size-[2.15rem] place-items-center rounded-full border-0 bg-primary text-[0.72rem] font-bold text-primary-foreground"
+            >
+              LA
             </button>
           </div>
+        </header>
 
-          {/* Métricas (KPI Cards) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-7">
-            <div className="bg-white border border-[#E4EAE0] rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-[#62775E]">Saldo disponible</span>
-                <div className="w-7 h-7 rounded-lg bg-[#EBF2E8] text-[#274E2A] flex items-center justify-center">
-                  <Wallet size={15} />
-                </div>
-              </div>
-              <p className="text-xl sm:text-2xl font-bold tracking-tight text-[#142A16]">{formatCOP(summary.balance)}</p>
-              <p className="text-[11px] font-medium text-[#2E6833] mt-2 flex items-center gap-1">
-                <span>↗ 12,4%</span> <span className="text-[#738870]">vs. agosto</span>
+        <main className="mx-auto max-w-[1440px] px-4 py-7 md:px-8 md:py-9">
+          <section className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+            <div>
+              <p className="mb-2 text-sm font-medium text-primary-dark">{getTodayLabel()}</p>
+              <h1 className="font-display text-3xl font-semibold tracking-tight text-heading md:text-4xl">
+                Movimientos
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                Revisa, filtra y administra tus ingresos y gastos.
               </p>
             </div>
 
-            <div className="bg-white border border-[#E4EAE0] rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-[#62775E]">Ingresos</span>
-                <div className="w-7 h-7 rounded-lg bg-[#EBF2E8] text-[#274E2A] flex items-center justify-center">
-                  <ArrowDownLeft size={15} />
-                </div>
-              </div>
-              <p className="text-xl sm:text-2xl font-bold tracking-tight text-[#142A16]">{formatCOP(summary.incomes)}</p>
-              <p className="text-[11px] font-medium text-[#2E6833] mt-2 flex items-center gap-1">
-                <span>↗ 8,2%</span> <span className="text-[#738870]">vs. agosto</span>
-              </p>
-            </div>
+            <button
+              onClick={() => {
+                setSelectedTx(null);
+                setIsModalOpen(true);
+              }}
+              className="inline-flex min-h-[2.6rem] items-center justify-center gap-2 self-start rounded-[0.4rem] border-0 bg-primary-dark px-4 py-[0.65rem] text-[0.83rem] font-bold text-primary-foreground shadow-xs transition hover:-translate-y-px hover:bg-heading sm:self-auto"
+            >
+              <Plus size={18} />
+              Añadir movimiento
+            </button>
+          </section>
 
-            <div className="bg-white border border-[#E4EAE0] rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-[#62775E]">Gastos</span>
-                <div className="w-7 h-7 rounded-lg bg-[#FBECEB] text-[#D93829] flex items-center justify-center">
-                  <ArrowUpRight size={15} />
-                </div>
-              </div>
-              <p className="text-xl sm:text-2xl font-bold tracking-tight text-[#142A16]">{formatCOP(summary.expenses)}</p>
-              <p className="text-[11px] font-medium text-[#D93829] mt-2 flex items-center gap-1">
-                <span>↘ 3,1%</span> <span className="text-[#738870]">vs. agosto</span>
-              </p>
-            </div>
+          <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              label="Saldo disponible"
+              value={summary.balance}
+              icon={Wallet}
+              featured
+              detail="Balance del mes"
+            />
+            <StatCard
+              label="Ingresos"
+              value={summary.incomes}
+              icon={ArrowDownRight}
+              detail="Total registrado este mes"
+            />
+            <StatCard
+              label="Gastos"
+              value={summary.expenses}
+              icon={ArrowUpRight}
+              tone="expense"
+              detail="Total registrado este mes"
+            />
+            <StatCard
+              label="Ahorro del mes"
+              value={savings}
+              icon={PiggyBank}
+              detail={incomes > 0 ? `${formatPercent(savingsRatio)} de tus ingresos` : 'Sin ingresos este mes'}
+            />
+          </section>
 
-            <div className="bg-white border border-[#E4EAE0] rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-[#62775E]">Ahorro del mes</span>
-                <div className="w-7 h-7 rounded-lg bg-[#EBF2E8] text-[#274E2A] flex items-center justify-center">
-                  <PiggyBank size={15} />
-                </div>
-              </div>
-              <p className="text-xl sm:text-2xl font-bold tracking-tight text-[#142A16]">{formatCOP(summary.savings)}</p>
-              <p className="text-[11px] font-medium text-[#2E6833] mt-2 flex items-center gap-1">
-                <span>↗ 33,5%</span> <span className="text-[#738870]">de tus ingresos</span>
-              </p>
-            </div>
-          </div>
-
-          {/* Gráfico */}
-          <div className="bg-white border border-[#E4EAE0] rounded-2xl p-4 sm:p-5 mb-6 sm:mb-7 shadow-2xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <section className="mb-6 rounded-[0.45rem] border border-border bg-card p-5 shadow-[0_2px_8px_oklch(30%_0.02_120_/_0.035)]">
+            <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
               <div>
-                <p className="text-[10px] font-semibold tracking-wider text-[#738870] uppercase">Flujo de Dinero</p>
-                <h3 className="text-sm sm:text-base font-serif font-bold text-[#142A16]">Ingresos y gastos</h3>
+                <p className="text-[0.66rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                  Flujo de dinero
+                </p>
+                <h2 className="mt-1 font-display text-base font-bold text-heading">
+                  Ingresos y gastos
+                </h2>
               </div>
-              <div className="flex items-center gap-4 text-xs font-medium">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#274E2A]" />
-                  <span className="text-[#556F53]">Ingresos</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#D93829]" />
-                  <span className="text-[#556F53]">Gastos</span>
-                </div>
+              <div className="flex items-center gap-4 text-[0.68rem] font-medium text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <i className="size-1.5 rounded-full bg-primary-dark" />
+                  Ingresos
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <i className="size-1.5 rounded-full bg-expense" />
+                  Gastos
+                </span>
               </div>
             </div>
 
-            <div className="h-28 sm:h-36 w-full relative flex items-end">
-              <svg viewBox="0 0 500 120" className="w-full h-full overflow-visible" preserveAspectRatio="none">
+            <div className="relative mt-6 h-36 w-full sm:h-44">
+              <svg viewBox="0 0 500 120" className="h-full w-full overflow-visible" preserveAspectRatio="none">
                 <defs>
-                  <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#274E2A" stopOpacity="0.22" />
-                    <stop offset="100%" stopColor="#274E2A" stopOpacity="0.0" />
+                  <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3F6B3A" stopOpacity="0.2" />
+                    <stop offset="100%" stopColor="#3F6B3A" stopOpacity="0" />
                   </linearGradient>
                 </defs>
-                <path d="M 0,80 Q 75,50 150,70 T 300,45 T 450,20 L 500,15 L 500,120 L 0,120 Z" fill="url(#incomeGrad)" />
-                <path d="M 0,80 Q 75,50 150,70 T 300,45 T 450,20 L 500,15" fill="none" stroke="#274E2A" strokeWidth="2.5" />
-                <path d="M 0,105 Q 85,95 170,100 T 340,90 T 500,75" fill="none" stroke="#D93829" strokeWidth="2" strokeDasharray="4 4" />
+                <path
+                  d="M 0,80 Q 75,50 150,70 T 300,45 T 450,20 L 500,15 L 500,120 L 0,120 Z"
+                  fill="url(#incomeGradient)"
+                />
+                <path
+                  d="M 0,80 Q 75,50 150,70 T 300,45 T 450,20 L 500,15"
+                  fill="none"
+                  stroke="#3F6B3A"
+                  strokeWidth="2.5"
+                />
+                <path
+                  d="M 0,105 Q 85,95 170,100 T 340,90 T 500,75"
+                  fill="none"
+                  stroke="#C77D4A"
+                  strokeWidth="2"
+                  strokeDasharray="4 4"
+                />
               </svg>
             </div>
-          </div>
 
-          {/* Historial */}
-          <div className="bg-white border border-[#E4EAE0] rounded-2xl p-4 sm:p-5 shadow-2xs">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5">
-              <h3 className="text-sm sm:text-base font-serif font-bold text-[#142A16]">Historial de movimientos</h3>
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[0.68rem] text-muted-foreground">Balance del período</span>
+                <strong className="font-display text-lg text-heading">{formatCOP(summary.balance)}</strong>
+              </div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1.5 text-[0.68rem] font-bold text-positive">
+                Flujo acumulado
+              </span>
+            </div>
+          </section>
 
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <section className="rounded-[0.45rem] border border-border bg-card p-5 shadow-[0_2px_8px_oklch(30%_0.02_120_/_0.035)]">
+            <div className="mb-5 flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+              <div>
+                <p className="text-[0.66rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                  Actividad
+                </p>
+                <h2 className="mt-1 font-display text-base font-bold text-heading">
+                  Historial de movimientos
+                </h2>
+              </div>
+
+              <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                 <div className="relative flex-1 sm:w-56">
-                  <Search size={14} className="absolute left-3 top-2.5 text-[#738870]" />
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
                     type="text"
                     placeholder="Buscar movimiento..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#F8FAF6] border border-[#DEE6DA] rounded-xl text-[#1A331C] placeholder:text-[#9FB19D] focus:outline-none focus:border-[#274E2A]"
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    className="w-full rounded-[0.4rem] border border-border bg-background py-1.5 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary-dark focus:outline-none"
                   />
                 </div>
 
                 <div className="flex items-center gap-2">
                   <select
                     value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                    className="flex-1 sm:flex-initial text-xs bg-[#F8FAF6] border border-[#DEE6DA] rounded-xl px-2.5 py-1.5 text-[#1A331C] focus:outline-none"
+                    onChange={(event) => setFilterType(event.target.value)}
+                    className="flex-1 cursor-pointer rounded-[0.4rem] border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-primary-dark focus:outline-none sm:flex-initial"
                   >
                     <option value="">Tipo</option>
                     <option value="income">Ingresos</option>
@@ -275,84 +418,102 @@ export default function MovementsPage() {
 
                   <select
                     value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
-                    className="flex-1 sm:flex-initial text-xs bg-[#F8FAF6] border border-[#DEE6DA] rounded-xl px-2.5 py-1.5 text-[#1A331C] focus:outline-none"
+                    onChange={(event) => setFilterCategory(event.target.value)}
+                    className="flex-1 cursor-pointer rounded-[0.4rem] border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-primary-dark focus:outline-none sm:flex-initial"
                   >
                     <option value="">Categoría</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
                     ))}
                   </select>
                 </div>
               </div>
             </div>
 
-            <div className="divide-y divide-[#F0F4ED]">
+            <div className="divide-y divide-border">
               {filteredList.length === 0 ? (
-                <p className="text-center py-10 text-xs text-[#738870]">
+                <p className="py-10 text-center text-xs text-muted-foreground">
                   No hay movimientos para estos filtros
                 </p>
               ) : (
-                filteredList.map((tx) => (
-                  <div key={tx.id} className="py-3 flex items-center justify-between hover:bg-[#F8FAF6] px-2 rounded-xl transition gap-2">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                          tx.type === 'income'
-                            ? 'bg-[#EBF2E8] text-[#274E2A]'
-                            : 'bg-[#FBECEB] text-[#D93829]'
-                        }`}
-                      >
-                        {tx.type === 'income' ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
-                      </div>
-                      <div className="truncate">
-                        <p className="text-xs font-semibold text-[#142A16] truncate">{tx.description || tx.category_name}</p>
-                        <span className="text-[10px] sm:text-[11px] text-[#738870] truncate block">
-                          {tx.transaction_date} • {tx.category_name}
-                        </span>
-                      </div>
-                    </div>
+                filteredList.map((transaction) => {
+                  const isIncome = transaction.type === 'income';
 
-                    <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                      <span
-                        className={`text-xs sm:text-sm font-bold ${
-                          tx.type === 'income' ? 'text-[#274E2A]' : 'text-[#142A16]'
-                        }`}
-                      >
-                        {tx.type === 'income' ? '+' : '-'} {formatCOP(tx.amount)}
-                      </span>
-                      <div className="flex items-center">
-                        <button
-                          onClick={() => { setSelectedTx(tx); setIsModalOpen(true); }}
-                          className="p-1 text-[#8EA08C] hover:text-[#274E2A] transition"
-                          title="Editar"
+                  return (
+                    <div
+                      key={transaction.id}
+                      className="flex items-center justify-between gap-2 rounded-[0.4rem] px-2 py-3 transition hover:bg-background"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div
+                          className={`grid size-9 shrink-0 place-items-center rounded-[0.4rem] ${
+                            isIncome ? 'bg-secondary text-primary-dark' : 'bg-expense/10 text-expense'
+                          }`}
                         >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(tx.id)}
-                          className="p-1 text-[#8EA08C] hover:text-[#D93829] transition"
-                          title="Eliminar"
+                          {isIncome ? <ArrowDownRight size={16} /> : <ArrowUpRight size={16} />}
+                        </div>
+                        <div className="truncate">
+                          <p className="truncate text-xs font-semibold text-foreground">
+                            {transaction.description || transaction.category_name}
+                          </p>
+                          <span className="block truncate text-[0.68rem] text-muted-foreground">
+                            {transaction.transaction_date} · {transaction.category_name}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+                        <span
+                          className={`text-xs font-bold sm:text-sm ${
+                            isIncome ? 'text-positive' : 'text-expense'
+                          }`}
                         >
-                          <Trash2 size={13} />
-                        </button>
+                          {isIncome ? '+' : '-'} {formatCOP(transaction.amount)}
+                        </span>
+                        <div className="flex items-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedTx(transaction);
+                              setIsModalOpen(true);
+                            }}
+                            className="p-1 text-muted-foreground transition hover:text-primary-dark"
+                            title="Editar"
+                            aria-label={`Editar ${transaction.description || transaction.category_name}`}
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(transaction.id)}
+                            className="p-1 text-muted-foreground transition hover:text-expense"
+                            title="Eliminar"
+                            aria-label={`Eliminar ${transaction.description || transaction.category_name}`}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
-          </div>
+          </section>
         </main>
       </div>
 
-      <TransactionModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={handleSave}
-        categories={categories}
-        initialData={selectedTx}
-      />
+      {isModalOpen && (
+        <TransactionModal
+          key={selectedTx?.id ?? 'new'}
+          onClose={() => setIsModalOpen(false)}
+          onSave={handleSave}
+          categories={categories}
+          initialData={selectedTx}
+        />
+      )}
     </div>
   );
 }
