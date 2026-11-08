@@ -28,7 +28,7 @@ jobs:
           cache-dependency-path: backend/requirements.lock
 
       - name: Instalar dependencias del backend
-        run: pip install --require-hashes --only-binary=:all: -r backend/requirements.lock
+        run: pip install --require-hashes --only-binary ":all:" -r backend/requirements.lock
 
       - name: pytest con cobertura
         working-directory: backend
