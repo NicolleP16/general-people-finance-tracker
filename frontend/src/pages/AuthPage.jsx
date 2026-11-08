@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { 
-  TrendingUp, 
-  Mail, 
-  Lock, 
-  User as UserIcon, 
-  ArrowRight, 
-  Eye, 
-  EyeOff, 
-  ShieldCheck, 
-  AlertCircle 
+import { useAuth } from '../context/useAuth';
+import {
+  AlertCircle,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  ShieldCheck,
+  TrendingUp,
+  User as UserIcon,
 } from 'lucide-react';
 
 export default function AuthPage() {
@@ -23,13 +23,13 @@ export default function AuthPage() {
   const { login, register } = useAuth();
   const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (event) => {
+    setFormData({ ...formData, [event.target.name]: event.target.value });
     if (error) setError('');
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setIsLoading(true);
     setError('');
 
@@ -64,71 +64,71 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAF6] text-[#1A331C] flex items-center justify-center p-4 relative font-sans antialiased">
-      {/* Círculos ambientales sutiles acordes a la paleta verde */}
-      <div className="absolute top-12 left-12 w-72 h-72 bg-[#E3EBDD]/60 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-12 right-12 w-80 h-80 bg-[#EDF4E8]/80 rounded-full blur-3xl pointer-events-none" />
+    <div className="relative flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
+      <div className="pointer-events-none absolute left-12 top-12 size-72 rounded-full bg-secondary/60 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-12 right-12 size-80 rounded-full bg-primary/10 blur-3xl" />
 
-      <div className="w-full max-w-sm z-10">
-        {/* Isotipo y Título de Marca idéntico al Sidebar */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-[#274E2A] text-white shadow-xs mb-3">
+      <div className="z-10 w-full max-w-[25rem]">
+        <div className="mb-6 text-center">
+          <div className="mb-3 inline-flex size-12 items-center justify-center rounded-[0.45rem] bg-primary-dark text-primary-foreground shadow-xs">
             <TrendingUp size={24} strokeWidth={2.5} />
           </div>
-          <h1 className="text-2xl font-serif font-bold tracking-tight text-[#142A16]">
-            Balance
-          </h1>
-          <p className="text-xs text-[#556F53] mt-1 font-medium">
+          <h1 className="font-display text-2xl font-bold tracking-tight text-heading">Balance</h1>
+          <p className="mt-1 text-xs font-medium text-muted-foreground">
             Control simple, claro y sereno de tus finanzas
           </p>
         </div>
 
-        {/* Tarjeta Principal en blanco con bordes cálidos */}
-        <div className="bg-white rounded-3xl border border-[#E4EAE0] p-6 sm:p-7 shadow-2xs">
-          
-          {/* Selector Login / Registro (mismo estilo que modal de gastos/ingresos) */}
-          <div className="flex p-1 bg-[#F1F4EE] rounded-xl border border-[#E4EAE0] mb-5">
+        <div className="rounded-[0.45rem] border border-border bg-card p-6 shadow-[0_2px_8px_oklch(30%_0.02_120_/_0.035)] sm:p-7">
+          <div className="mb-5 flex rounded-[0.4rem] border border-border bg-background p-1">
             <button
               type="button"
-              onClick={() => { setIsLogin(true); setError(''); }}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${
+              onClick={() => {
+                setIsLogin(true);
+                setError('');
+              }}
+              className={`flex-1 rounded-[0.35rem] py-1.5 text-xs font-semibold transition ${
                 isLogin
-                  ? 'bg-white text-[#1E3B20] shadow-xs'
-                  : 'text-[#62775E] hover:text-[#1A331C]'
+                  ? 'bg-white text-primary-dark shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Iniciar sesión
             </button>
             <button
               type="button"
-              onClick={() => { setIsLogin(false); setError(''); }}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${
+              onClick={() => {
+                setIsLogin(false);
+                setError('');
+              }}
+              className={`flex-1 rounded-[0.35rem] py-1.5 text-xs font-semibold transition ${
                 !isLogin
-                  ? 'bg-white text-[#1E3B20] shadow-xs'
-                  : 'text-[#62775E] hover:text-[#1A331C]'
+                  ? 'bg-white text-primary-dark shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Crear cuenta
             </button>
           </div>
 
-          {/* Alerta de Error (usando el rojo institucional de gastos #D93829) */}
           {error && (
-            <div className="mb-4 p-3 bg-[#FBECEB] border border-[#F5D5D3] rounded-xl flex items-center gap-2.5 text-[#D93829] text-xs font-medium">
+            <div className="mb-4 flex items-center gap-2.5 rounded-[0.4rem] border border-expense/20 bg-expense/10 p-3 text-xs font-medium text-expense">
               <AlertCircle size={15} className="shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* Formulario */}
           <form onSubmit={handleSubmit} className="space-y-3.5">
             {!isLogin && (
               <div>
-                <label className="block text-[11px] font-semibold text-[#556F53] mb-1">
+                <label className="mb-1 block text-[0.7rem] font-semibold text-muted-foreground">
                   Nombre completo
                 </label>
                 <div className="relative">
-                  <UserIcon size={15} className="text-[#738870] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <UserIcon
+                    size={15}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  />
                   <input
                     type="text"
                     name="name"
@@ -136,18 +136,21 @@ export default function AuthPage() {
                     value={formData.name}
                     onChange={handleChange}
                     placeholder="Laura Álvarez"
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-[#FBFDFB] border border-[#DEE6DA] rounded-xl text-xs font-medium text-[#1A331C] placeholder:text-[#9FB19D] focus:outline-none focus:border-[#274E2A] focus:ring-1 focus:ring-[#274E2A] transition"
+                    className="w-full rounded-[0.4rem] border border-border bg-background py-2.5 pl-9 pr-3.5 text-xs font-medium text-foreground placeholder:text-muted-foreground transition focus:border-primary-dark focus:outline-none focus:ring-1 focus:ring-primary-dark"
                   />
                 </div>
               </div>
             )}
 
             <div>
-              <label className="block text-[11px] font-semibold text-[#556F53] mb-1">
+              <label className="mb-1 block text-[0.7rem] font-semibold text-muted-foreground">
                 Correo electrónico
               </label>
               <div className="relative">
-                <Mail size={15} className="text-[#738870] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Mail
+                  size={15}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
                 <input
                   type="email"
                   name="email"
@@ -155,17 +158,20 @@ export default function AuthPage() {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="laura@ejemplo.com"
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-[#FBFDFB] border border-[#DEE6DA] rounded-xl text-xs font-medium text-[#1A331C] placeholder:text-[#9FB19D] focus:outline-none focus:border-[#274E2A] focus:ring-1 focus:ring-[#274E2A] transition"
+                  className="w-full rounded-[0.4rem] border border-border bg-background py-2.5 pl-9 pr-3.5 text-xs font-medium text-foreground placeholder:text-muted-foreground transition focus:border-primary-dark focus:outline-none focus:ring-1 focus:ring-primary-dark"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-[#556F53] mb-1">
+              <label className="mb-1 block text-[0.7rem] font-semibold text-muted-foreground">
                 Contraseña
               </label>
               <div className="relative">
-                <Lock size={15} className="text-[#738870] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Lock
+                  size={15}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   name="password"
@@ -173,12 +179,13 @@ export default function AuthPage() {
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="Mínimo 8 caracteres"
-                  className="w-full pl-9 pr-10 py-2.5 bg-[#FBFDFB] border border-[#DEE6DA] rounded-xl text-xs font-medium text-[#1A331C] placeholder:text-[#9FB19D] focus:outline-none focus:border-[#274E2A] focus:ring-1 focus:ring-[#274E2A] transition"
+                  className="w-full rounded-[0.4rem] border border-border bg-background py-2.5 pl-9 pr-10 text-xs font-medium text-foreground placeholder:text-muted-foreground transition focus:border-primary-dark focus:outline-none focus:ring-1 focus:ring-primary-dark"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#738870] hover:text-[#1A331C] transition"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
                 >
                   {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -188,10 +195,10 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full mt-2 bg-[#274E2A] hover:bg-[#1E3F21] text-white font-semibold py-2.5 rounded-xl text-xs transition shadow-xs flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-[0.4rem] bg-primary-dark py-2.5 text-xs font-semibold text-primary-foreground shadow-xs transition hover:bg-heading disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isLoading ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="size-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
               ) : (
                 <>
                   <span>{isLogin ? 'Ingresar a mi cuenta' : 'Registrarme'}</span>
@@ -201,9 +208,8 @@ export default function AuthPage() {
             </button>
           </form>
 
-          {/* Insignia inferior */}
-          <div className="mt-6 pt-4 border-t border-[#E6ECE2] flex items-center justify-center gap-1.5 text-[11px] text-[#738870]">
-            <ShieldCheck size={14} className="text-[#274E2A]" />
+          <div className="mt-6 flex items-center justify-center gap-1.5 border-t border-border pt-4 text-[0.68rem] text-muted-foreground">
+            <ShieldCheck size={14} className="text-primary-dark" />
             <span>Tus datos financieros viajan encriptados de extremo a extremo</span>
           </div>
         </div>

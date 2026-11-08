@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import AuthPage from './pages/AuthPage';
-import DashboardPage from './pages/DashboardPage';
+import SummaryPage from './pages/SummaryPage';
 
 function App() {
   return (
@@ -19,7 +19,23 @@ function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <DashboardPage />
+                <SummaryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/summary"
+            element={
+              <ProtectedRoute>
+                <SummaryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/resumen"
+            element={
+              <ProtectedRoute>
+                <SummaryPage />
               </ProtectedRoute>
             }
           />

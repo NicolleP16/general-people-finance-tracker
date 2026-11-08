@@ -1,20 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
 
-export default function TransactionModal({ 
-  isOpen, 
-  onClose, 
-  onSave, 
-  categories = [], 
-  initialData = null 
+const getTodayDate = () => new Date().toISOString().split('T')[0];
+
+const buildFormData = (initialData) => ({
+  amount: initialData?.amount || '',
+  type: initialData?.type || 'expense',
+  category: initialData?.category || '',
+  transaction_date: initialData?.transaction_date || getTodayDate(),
+  description: initialData?.description || '',
+});
+
+export default function TransactionModal({
+  isOpen = true,
+  onClose,
+  onSave,
+  categories = [],
+  initialData = null,
 }) {
-  const [formData, setFormData] = useState({
-    amount: '',
-    type: 'expense',
-    category: '',
-    transaction_date: new Date().toISOString().split('T')[0],
-    description: '',
-  });
+  const [formData, setFormData] = useState(() => buildFormData(initialData));
 
   const defaultCategories = [
     { id: 1, name: 'Alimentación', type: 'expense' },
@@ -25,67 +29,50 @@ export default function TransactionModal({
     { id: 6, name: 'Inversiones', type: 'income' },
   ];
 
-  const categoryList = (categories && categories.length > 0) ? categories : defaultCategories;
-
-  useEffect(() => {
-    if (initialData) {
-      setFormData({
-        amount: initialData.amount || '',
-        type: initialData.type || 'expense',
-        category: initialData.category || '',
-        transaction_date: initialData.transaction_date || new Date().toISOString().split('T')[0],
-        description: initialData.description || '',
-      });
-    } else {
-      setFormData({
-        amount: '',
-        type: 'expense',
-        category: '',
-        transaction_date: new Date().toISOString().split('T')[0],
-        description: '',
-      });
-    }
-  }, [initialData, isOpen]);
-
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const categoryList = categories && categories.length > 0 ? categories : defaultCategories;
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
     if (!formData.amount || !formData.category || !formData.type) return;
     onSave(formData);
     onClose();
   };
 
-  const filteredCategories = categoryList.filter((c) => c.type === formData.type);
-  const today = new Date().toISOString().split('T')[0];
-
-  // Criterio HU-02: Guardar deshabilitado si no hay categoría, tipo o monto > 0
-  const isSaveDisabled = !formData.category || !formData.type || !formData.amount || Number(formData.amount) <= 0;
+  const filteredCategories = categoryList.filter((category) => category.type === formData.type);
+  const today = getTodayDate();
+  const isSaveDisabled =
+    !formData.category ||
+    !formData.type ||
+    !formData.amount ||
+    Number(formData.amount) <= 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-2xs p-4">
-      <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-[#E8ECE4] animate-in fade-in zoom-in duration-150">
-        <div className="flex justify-between items-center mb-5">
-          <h2 className="text-lg font-serif font-bold text-[#1A331C]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-[0.45rem] border border-border bg-card p-6 shadow-2xl">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="font-display text-lg font-bold text-heading">
             {initialData ? 'Editar movimiento' : 'Añadir movimiento'}
           </h2>
-          <button 
-            onClick={onClose} 
-            className="p-1.5 hover:bg-[#F2F5F0] rounded-full text-[#738870] transition"
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="grid size-8 place-items-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-primary-dark"
           >
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Toggle Gasto / Ingreso */}
-          <div className="flex p-1 bg-[#F1F4EE] rounded-xl border border-[#E4EAE0]">
+          <div className="flex rounded-[0.4rem] border border-border bg-background p-1">
             <button
               type="button"
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${
+              className={`flex-1 rounded-[0.35rem] py-1.5 text-xs font-semibold transition ${
                 formData.type === 'expense'
-                  ? 'bg-white text-[#D93829] shadow-xs'
-                  : 'text-[#62775E] hover:text-[#1A331C]'
+                  ? 'bg-white text-expense shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               onClick={() => setFormData({ ...formData, type: 'expense', category: '' })}
             >
@@ -93,10 +80,10 @@ export default function TransactionModal({
             </button>
             <button
               type="button"
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${
+              className={`flex-1 rounded-[0.35rem] py-1.5 text-xs font-semibold transition ${
                 formData.type === 'income'
-                  ? 'bg-white text-[#274E2A] shadow-xs'
-                  : 'text-[#62775E] hover:text-[#1A331C]'
+                  ? 'bg-white text-primary-dark shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               onClick={() => setFormData({ ...formData, type: 'income', category: '' })}
             >
@@ -104,79 +91,88 @@ export default function TransactionModal({
             </button>
           </div>
 
-          {/* Monto */}
           <div>
-            <label className="block text-[11px] font-semibold text-[#556F53] mb-1">Monto ($)</label>
+            <label className="mb-1 block text-[0.7rem] font-semibold text-muted-foreground">
+              Monto ($)
+            </label>
             <input
               type="number"
               step="0.01"
               min="0.01"
               required
               placeholder="0.00"
-              className="w-full px-3.5 py-2.5 bg-[#FBFDFB] border border-[#DEE6DA] rounded-xl text-sm font-medium text-[#1A331C] placeholder:text-[#9FB19D] focus:outline-none focus:border-[#274E2A] focus:ring-1 focus:ring-[#274E2A]"
+              className="w-full rounded-[0.4rem] border border-border bg-background px-3.5 py-2.5 text-sm font-medium text-foreground placeholder:text-muted-foreground focus:border-primary-dark focus:outline-none"
               value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+              onChange={(event) => setFormData({ ...formData, amount: event.target.value })}
             />
           </div>
 
-          {/* Categoría */}
           <div>
-            <label className="block text-[11px] font-semibold text-[#556F53] mb-1">Categoría</label>
+            <label className="mb-1 block text-[0.7rem] font-semibold text-muted-foreground">
+              Categoría
+            </label>
             <select
               aria-label="Categoría"
-              className="w-full px-3.5 py-2.5 bg-[#FBFDFB] border border-[#DEE6DA] rounded-xl text-sm font-medium text-[#1A331C] focus:outline-none focus:border-[#274E2A] focus:ring-1 focus:ring-[#274E2A]"
+              className="w-full rounded-[0.4rem] border border-border bg-background px-3.5 py-2.5 text-sm font-medium text-foreground focus:border-primary-dark focus:outline-none"
               value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              onChange={(event) => setFormData({ ...formData, category: event.target.value })}
             >
               <option value="">Selecciona categoría</option>
-              {filteredCategories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+              {filteredCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
               ))}
             </select>
           </div>
 
-          {/* Fecha */}
           <div>
-            <label className="block text-[11px] font-semibold text-[#556F53] mb-1">Fecha</label>
+            <label className="mb-1 block text-[0.7rem] font-semibold text-muted-foreground">
+              Fecha
+            </label>
             <input
               type="date"
               max={today}
               required
-              className="w-full px-3.5 py-2.5 bg-[#FBFDFB] border border-[#DEE6DA] rounded-xl text-sm font-medium text-[#1A331C] focus:outline-none focus:border-[#274E2A]"
+              className="w-full rounded-[0.4rem] border border-border bg-background px-3.5 py-2.5 text-sm font-medium text-foreground focus:border-primary-dark focus:outline-none"
               value={formData.transaction_date}
-              onChange={(e) => setFormData({ ...formData, transaction_date: e.target.value })}
+              onChange={(event) =>
+                setFormData({ ...formData, transaction_date: event.target.value })
+              }
             />
           </div>
 
-          {/* Descripción */}
           <div>
-            <label className="block text-[11px] font-semibold text-[#556F53] mb-1">Descripción (máx 255 car.)</label>
+            <label className="mb-1 block text-[0.7rem] font-semibold text-muted-foreground">
+              Descripción (máx 255 car.)
+            </label>
             <input
               type="text"
               maxLength={255}
               placeholder="Ej: Almuerzo de trabajo"
-              className="w-full px-3.5 py-2.5 bg-[#FBFDFB] border border-[#DEE6DA] rounded-xl text-sm font-medium text-[#1A331C] placeholder:text-[#9FB19D] focus:outline-none focus:border-[#274E2A]"
+              className="w-full rounded-[0.4rem] border border-border bg-background px-3.5 py-2.5 text-sm font-medium text-foreground placeholder:text-muted-foreground focus:border-primary-dark focus:outline-none"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(event) =>
+                setFormData({ ...formData, description: event.target.value })
+              }
             />
           </div>
 
-          {/* Botones */}
-          <div className="pt-3 flex items-center justify-end gap-2.5">
+          <div className="flex items-center justify-end gap-2.5 pt-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-[#62775E] hover:text-[#1A331C] transition"
+              className="px-4 py-2 text-xs font-semibold text-muted-foreground transition hover:text-foreground"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSaveDisabled}
-              className={`px-5 py-2.5 text-xs font-semibold rounded-xl transition shadow-xs ${
+              className={`rounded-[0.4rem] px-5 py-2.5 text-xs font-semibold shadow-xs transition ${
                 isSaveDisabled
-                  ? 'bg-[#E3E8DF] text-[#8EA08C] cursor-not-allowed'
-                  : 'bg-[#274E2A] hover:bg-[#1E3F21] text-white'
+                  ? 'cursor-not-allowed bg-muted text-muted-foreground'
+                  : 'bg-primary-dark text-primary-foreground hover:bg-heading'
               }`}
             >
               Guardar
