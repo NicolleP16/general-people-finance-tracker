@@ -1,15 +1,16 @@
-import React from 'react';
+import { Link, useInRouterContext } from 'react-router-dom';
 import { 
   TrendingUp, LayoutGrid, ReceiptText, PiggyBank, Target, 
   Settings, ChevronDown, X 
 } from 'lucide-react';
 
-export default function Sidebar({ isOpen, onClose }) {
+export default function Sidebar({ isOpen, onClose, activeItem = 'Movimientos' }) {
+  const hasRouter = useInRouterContext();
   const menuItems = [
-    { name: 'Resumen', icon: LayoutGrid, active: false },
-    { name: 'Movimientos', icon: ReceiptText, active: true },
-    { name: 'Presupuestos', icon: PiggyBank, active: false, badge: '2' },
-    { name: 'Metas', icon: Target, active: false },
+    { name: 'Resumen', icon: LayoutGrid, href: '/dashboard' },
+    { name: 'Movimientos', icon: ReceiptText, href: '/movimientos' },
+    { name: 'Presupuestos', icon: PiggyBank, badge: '2' },
+    { name: 'Metas', icon: Target },
   ];
 
   return (
@@ -52,17 +53,16 @@ export default function Sidebar({ isOpen, onClose }) {
           <nav className="space-y-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
-              return (
-                <button
-                  key={item.name}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition ${
-                    item.active
-                      ? 'bg-[#E3EBDD] text-[#1E3B20] font-semibold shadow-2xs'
-                      : 'text-[#4F644D] hover:bg-[#EEF4E9]'
-                  }`}
-                >
+              const isActive = item.name === activeItem;
+              const itemClassName = `w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition ${
+                isActive
+                  ? 'bg-[#E3EBDD] text-[#1E3B20] font-semibold shadow-2xs'
+                  : 'text-[#4F644D] hover:bg-[#EEF4E9]'
+              }`;
+              const content = (
+                <>
                   <div className="flex items-center gap-3">
-                    <Icon size={17} strokeWidth={item.active ? 2.2 : 1.8} />
+                    <Icon size={17} strokeWidth={isActive ? 2.2 : 1.8} />
                     <span>{item.name}</span>
                   </div>
                   {item.badge && (
@@ -70,6 +70,29 @@ export default function Sidebar({ isOpen, onClose }) {
                       {item.badge}
                     </span>
                   )}
+                </>
+              );
+
+              if (item.href) {
+                const linkProps = {
+                  'aria-current': isActive ? 'page' : undefined,
+                  className: itemClassName,
+                };
+
+                return hasRouter ? (
+                  <Link key={item.name} to={item.href} {...linkProps}>
+                    {content}
+                  </Link>
+                ) : (
+                  <a key={item.name} href={item.href} {...linkProps}>
+                    {content}
+                  </a>
+                );
+              }
+
+              return (
+                <button key={item.name} className={itemClassName}>
+                  {content}
                 </button>
               );
             })}
